@@ -112,7 +112,7 @@ function icn3dUrl(structure: StructureCandidate | null) {
     url: file,
     width: "100%",
     height: "100%",
-    command: "set background transparent; style proteins cartoon; color orange",
+    command: "set background transparent; style proteins cartoon; color #ff5a00",
     showcommand: "0",
     showtitle: "0",
     mobilemenu: "1",
