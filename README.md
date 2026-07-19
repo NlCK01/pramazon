@@ -16,14 +16,19 @@ sequence output.
 
 `POST /api/research` runs the backend workflow:
 
-1. Ask an LLM to normalize species, condition, intent, search terms, and target
-   genes. If `OPENAI_API_KEY` is not configured, use the deterministic fallback
-   profiles and mark the result as fallback-generated.
-2. Search Europe PMC for current literature.
+1. Ask an LLM to plan species, condition, intent, target genes, evidence
+   questions, source strategy, and multiple source-specific search queries. If
+   `OPENAI_API_KEY` is not configured, use the deterministic fallback profiles
+   and mark the result as fallback-generated.
+2. Search Europe PMC with multiple planned queries and merge/dedupe current
+   literature.
 3. Search UniProt and NCBI Protein for accession-linked reference records.
 4. Check AlphaFold DB for public PDB/CIF structure files.
-5. Route the request to the most relevant NVIDIA model family.
-6. Cache the completed research packet in D1 for explicit cache reuse.
+5. Ask the LLM to synthesize the retrieved evidence, accession choices, and
+   model route into the research packet. Hosted OpenAI web search is attempted
+   when available.
+6. Route the request to the most relevant NVIDIA model family.
+7. Cache the completed research packet in D1 for explicit cache reuse.
 
 The main submit action always runs a fresh lookup. The cache is only used when
 the user explicitly chooses the cached packet.
@@ -40,10 +45,14 @@ Configure these locally or in Sites runtime environment variables:
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5-mini
 OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_ENABLE_WEB_SEARCH=true
+OPENAI_WEB_SEARCH_TOOL=web_search
 ```
 
-Only `OPENAI_API_KEY` is required for LLM terminology. `OPENAI_MODEL` and
-`OPENAI_BASE_URL` are optional overrides.
+Only `OPENAI_API_KEY` is required for the LLM planner and synthesis pass.
+`OPENAI_MODEL`, `OPENAI_BASE_URL`, and the hosted web-search flags are optional
+overrides. If no API key is configured, the live biomedical source lookups still
+run with deterministic planning and synthesis.
 
 ## Safety Boundary
 

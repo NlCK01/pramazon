@@ -36,10 +36,12 @@ declare global {
 }
 
 const searchTargets = [
+  "LLM research planner",
   "Europe PMC",
   "NCBI E-utilities",
   "UniProt",
   "AlphaFold DB",
+  "LLM research synthesis",
   "NVIDIA NIM route scaffolds",
 ];
 
@@ -262,16 +264,17 @@ export default function Home() {
           <p className="eyebrow">Live veterinary genomics research console</p>
           <h1 id="app-title">Helix Triage</h1>
           <p className="hero-text">
-            Type any biomedical goal. The app normalizes the species and
-            condition, searches trusted biomedical sources, retrieves public
-            accession and structure candidates, routes NVIDIA model options, and
-            keeps therapeutic sequence output gated.
+            Type any biomedical goal. The LLM plans the terminology, target
+            genes, search questions, and retrieval strategy, then the backend
+            searches trusted biomedical sources, retrieves public accession and
+            structure candidates, routes NVIDIA model options, and keeps
+            therapeutic sequence output gated.
           </p>
         </div>
         <div className="status-strip" aria-label="Workflow status">
-          <span>Normalize</span>
+          <span>Plan</span>
           <span>Retrieve</span>
-          <span>Rank</span>
+          <span>Synthesize</span>
           <span>Render</span>
         </div>
       </section>
@@ -320,13 +323,24 @@ export default function Home() {
           <h2>{result?.normalized.condition ?? "Run a query"}</h2>
           <p>
             {result?.normalized.medical ??
-              "The backend will detect species, condition, intent, search terms, target genes, and whether the request needs clarification."}
+              "The backend will ask the LLM for species, condition, intent, search terms, target genes, source strategy, and whether the request needs clarification."}
           </p>
           <div className="term-grid" aria-label="Search terms">
             {(result?.normalized.terms ?? searchTargets).map((term) => (
               <span key={term}>{term}</span>
             ))}
           </div>
+          {result?.synthesis ? (
+            <div className="synthesis-block" data-source={result.synthesis.source}>
+              <span>
+                {result.synthesis.source === "llm"
+                  ? `LLM synthesis${result.synthesis.llmModel ? `: ${result.synthesis.llmModel}` : ""}`
+                  : "deterministic synthesis"}
+              </span>
+              <p>{result.synthesis.problem}</p>
+              <p>{result.synthesis.research}</p>
+            </div>
+          ) : null}
           {result ? (
             <div className="confidence-row">
               <strong>{result.normalized.confidence}</strong>

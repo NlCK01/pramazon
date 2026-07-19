@@ -64,6 +64,8 @@ export type NormalizedRequest = {
   terms: string[];
   targetGenes: string[];
   searchQueries: string[];
+  evidenceQuestions: string[];
+  sourcePlan: string[];
   taxonomyId?: string;
   needsClarification: boolean;
   terminologySource: "llm" | "rules";
@@ -78,10 +80,24 @@ export type SafetyAssessment = {
   blockedOutputs: string[];
 };
 
+export type ResearchSynthesis = {
+  source: "llm" | "deterministic";
+  problem: string;
+  research: string;
+  sequenceRationale: string;
+  modelPlan: string;
+  caveats: string[];
+  evidenceOrder: string[];
+  accessionOrder: string[];
+  webFindings?: string[];
+  llmModel?: string;
+};
+
 export type ResearchResult = {
   query: string;
   retrievedAt: string;
   normalized: NormalizedRequest;
+  synthesis: ResearchSynthesis;
   evidence: EvidenceItem[];
   sequences: SequenceCandidate[];
   structures: StructureCandidate[];

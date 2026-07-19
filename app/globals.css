@@ -307,6 +307,31 @@ button:disabled {
   font-weight: 760;
 }
 
+.synthesis-block {
+  margin-top: 20px;
+  border-top: 1px solid #dce5de;
+  padding-top: 16px;
+}
+
+.synthesis-block span {
+  display: inline-flex;
+  border-radius: 999px;
+  border: 1px solid #c8d6ce;
+  padding: 6px 10px;
+  background: #ffffff;
+  color: var(--teal-dark);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.synthesis-block[data-source="deterministic"] span {
+  color: #8a5b0e;
+}
+
+.synthesis-block p {
+  margin-top: 12px;
+}
+
 .evidence-band,
 .model-band,
 .sequence-band {

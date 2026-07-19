@@ -5,6 +5,7 @@ import type {
   NormalizedRequest,
   ProviderStatus,
   ResearchResult,
+  ResearchSynthesis,
   RoutedModel,
   SafetyAssessment,
   SequenceCandidate,
@@ -28,7 +29,11 @@ type RuntimeEnv = {
   OPENAI_API_KEY?: string;
   OPENAI_MODEL?: string;
   OPENAI_BASE_URL?: string;
+  OPENAI_ENABLE_WEB_SEARCH?: string;
+  OPENAI_WEB_SEARCH_TOOL?: string;
 };
+
+type ResearchBase = Omit<ResearchResult, "packet" | "synthesis">;
 
 type LlmTerminology = {
   speciesCommon: string;
@@ -42,7 +47,20 @@ type LlmTerminology = {
   terms: string[];
   targetGenes: string[];
   searchQueries: string[];
+  evidenceQuestions: string[];
+  sourcePlan: string[];
   needsClarification: boolean;
+};
+
+type LlmResearchSynthesis = {
+  problem: string;
+  research: string;
+  sequenceRationale: string;
+  modelPlan: string;
+  caveats: string[];
+  evidenceOrder: string[];
+  accessionOrder: string[];
+  webFindings: string[];
 };
 
 type SpeciesProfile = {
@@ -178,6 +196,127 @@ const diseaseProfiles: Array<DiseaseProfile & { aliases: string[] }> = [
     kindHints: ["targeted therapy", "hormone receptor", "biomarker"],
   },
   {
+    group: "lung cancer",
+    canonical: "lung carcinoma",
+    aliases: [
+      "lung cancer",
+      "lung carcinoma",
+      "non-small cell lung cancer",
+      "small cell lung cancer",
+      "nsclc",
+      "sclc",
+    ],
+    medicalTerms: [
+      "lung carcinoma",
+      "non-small cell lung carcinoma",
+      "lung adenocarcinoma",
+      "small cell lung carcinoma",
+      "pulmonary neoplasm",
+    ],
+    targetGenes: ["EGFR", "ALK", "KRAS", "ROS1", "MET", "RET", "BRAF", "TP53"],
+    kindHints: ["targeted therapy", "immune checkpoint therapy", "driver mutation"],
+  },
+  {
+    group: "colorectal cancer",
+    canonical: "colorectal carcinoma",
+    aliases: [
+      "colon cancer",
+      "colorectal cancer",
+      "rectal cancer",
+      "bowel cancer",
+      "colon carcinoma",
+    ],
+    medicalTerms: [
+      "colorectal carcinoma",
+      "colon adenocarcinoma",
+      "rectal carcinoma",
+      "microsatellite instability",
+      "mismatch repair deficiency",
+    ],
+    targetGenes: ["APC", "KRAS", "TP53", "SMAD4", "BRAF", "MLH1", "MSH2"],
+    kindHints: ["targeted therapy", "immunotherapy", "biomarker"],
+  },
+  {
+    group: "pancreatic cancer",
+    canonical: "pancreatic ductal adenocarcinoma",
+    aliases: ["pancreatic cancer", "pancreas cancer", "pancreatic carcinoma"],
+    medicalTerms: [
+      "pancreatic ductal adenocarcinoma",
+      "pancreatic carcinoma",
+      "KRAS-mutant pancreatic cancer",
+      "DNA damage repair biomarker",
+    ],
+    targetGenes: ["KRAS", "TP53", "CDKN2A", "SMAD4", "BRCA1", "BRCA2", "PALB2"],
+    kindHints: ["targeted therapy", "stroma", "DNA repair"],
+  },
+  {
+    group: "kidney cancer",
+    canonical: "renal cell carcinoma",
+    aliases: ["kidney cancer", "renal cancer", "renal cell carcinoma", "kidney carcinoma"],
+    medicalTerms: [
+      "renal cell carcinoma",
+      "clear cell renal cell carcinoma",
+      "papillary renal cell carcinoma",
+      "VEGF pathway",
+      "immune checkpoint therapy",
+    ],
+    targetGenes: ["VHL", "PBRM1", "SETD2", "BAP1", "MET", "TP53"],
+    kindHints: ["targeted therapy", "angiogenesis", "immunotherapy"],
+  },
+  {
+    group: "liver cancer",
+    canonical: "hepatocellular carcinoma",
+    aliases: ["liver cancer", "hepatic cancer", "hepatocellular carcinoma", "liver carcinoma"],
+    medicalTerms: [
+      "hepatocellular carcinoma",
+      "hepatic neoplasm",
+      "WNT beta-catenin signaling",
+      "immune checkpoint therapy",
+    ],
+    targetGenes: ["TERT", "CTNNB1", "TP53", "AXIN1", "ARID1A", "VEGFA"],
+    kindHints: ["targeted therapy", "immunotherapy", "angiogenesis"],
+  },
+  {
+    group: "brain cancer",
+    canonical: "glioma",
+    aliases: ["brain cancer", "brain tumor", "brain tumour", "glioma", "glioblastoma"],
+    medicalTerms: [
+      "glioma",
+      "glioblastoma",
+      "astrocytoma",
+      "IDH-mutant glioma",
+      "central nervous system neoplasm",
+    ],
+    targetGenes: ["IDH1", "IDH2", "MGMT", "EGFR", "TERT", "TP53", "ATRX"],
+    kindHints: ["molecular classification", "targeted therapy", "biomarker"],
+  },
+  {
+    group: "ovarian cancer",
+    canonical: "ovarian carcinoma",
+    aliases: ["ovarian cancer", "ovary cancer", "ovarian carcinoma"],
+    medicalTerms: [
+      "ovarian carcinoma",
+      "high-grade serous ovarian carcinoma",
+      "homologous recombination deficiency",
+      "PARP inhibitor biomarker",
+    ],
+    targetGenes: ["BRCA1", "BRCA2", "TP53", "RAD51C", "RAD51D", "PIK3CA"],
+    kindHints: ["DNA repair", "targeted therapy", "biomarker"],
+  },
+  {
+    group: "bladder cancer",
+    canonical: "urothelial carcinoma",
+    aliases: ["bladder cancer", "urothelial cancer", "bladder carcinoma", "urothelial carcinoma"],
+    medicalTerms: [
+      "urothelial carcinoma",
+      "bladder carcinoma",
+      "FGFR-altered urothelial cancer",
+      "immune checkpoint therapy",
+    ],
+    targetGenes: ["FGFR3", "TP53", "RB1", "ERBB2", "PIK3CA", "TERT"],
+    kindHints: ["targeted therapy", "immunotherapy", "biomarker"],
+  },
+  {
     group: "hematologic malignancy",
     canonical: "leukemia",
     aliases: [
@@ -207,6 +346,39 @@ const diseaseProfiles: Array<DiseaseProfile & { aliases: string[] }> = [
     kindHints: ["hematology", "blood cancer", "targeted therapy", "fusion gene", "biomarker"],
   },
   {
+    group: "hematologic malignancy",
+    canonical: "lymphoma",
+    aliases: [
+      "lymphoma",
+      "lymph cancer",
+      "hodgkin lymphoma",
+      "non-hodgkin lymphoma",
+      "diffuse large b-cell lymphoma",
+    ],
+    medicalTerms: [
+      "lymphoma",
+      "Hodgkin lymphoma",
+      "non-Hodgkin lymphoma",
+      "diffuse large B-cell lymphoma",
+      "B-cell receptor signaling",
+    ],
+    targetGenes: ["CD19", "CD20", "BCL2", "BCL6", "MYC", "BTK", "TP53"],
+    kindHints: ["hematology", "immunotherapy", "CAR T-cell target", "biomarker"],
+  },
+  {
+    group: "plasma cell neoplasm",
+    canonical: "multiple myeloma",
+    aliases: ["multiple myeloma", "myeloma", "plasma cell cancer"],
+    medicalTerms: [
+      "multiple myeloma",
+      "plasma cell neoplasm",
+      "BCMA-targeted therapy",
+      "proteasome inhibitor response",
+    ],
+    targetGenes: ["TNFRSF17", "KRAS", "NRAS", "BRAF", "TP53", "CCND1"],
+    kindHints: ["hematology", "immunotherapy", "targeted therapy"],
+  },
+  {
     group: "diabetes",
     canonical: "diabetes mellitus",
     aliases: ["diabetes", "diabetic", "blood sugar"],
@@ -232,19 +404,6 @@ const diseaseProfiles: Array<DiseaseProfile & { aliases: string[] }> = [
     targetGenes: ["MYH7", "TNNT2", "MYBPC3", "LMNA", "TTN"],
     kindHints: ["gene association", "structural protein"],
   },
-  {
-    group: "cancer",
-    canonical: "malignant neoplasm",
-    aliases: ["cancer", "tumour", "tumor", "neoplasm", "carcinoma", "sarcoma"],
-    medicalTerms: [
-      "malignant neoplasm",
-      "tumor biology",
-      "immune checkpoint therapy",
-      "target validation",
-    ],
-    targetGenes: ["TP53", "PTEN", "CD274", "PDCD1", "MYC", "KRAS"],
-    kindHints: ["oncology", "targeted therapy", "biomarker"],
-  },
 ];
 
 function jsonResponse(payload: unknown, status = 200) {
@@ -258,6 +417,10 @@ function jsonResponse(payload: unknown, status = 200) {
 
 function normalizeText(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function unique<T>(items: T[]) {
@@ -303,6 +466,88 @@ function extractSpecies(clean: string): SpeciesProfile {
   );
 }
 
+function inferConditionText(clean: string) {
+  const requestWords =
+    /\b(cure|treat|treatment|therapy|therapeutic|fix|for|my|a|an|the|please|make|create|generate|help|against|in|of|to|with)\b/g;
+  const speciesAliases = speciesProfiles
+    .flatMap((profile) => profile.aliases)
+    .sort((a, b) => b.length - a.length)
+    .map(escapeRegExp)
+    .join("|");
+  const speciesRegex = speciesAliases ? new RegExp(`\\b(?:${speciesAliases})\\b`, "g") : null;
+  const inferred = clean
+    .replace(requestWords, " ")
+    .replace(speciesRegex ?? /$^/, " ")
+    .replace(/\b(gene|genetic|sequence|program|medicine|drug)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return inferred.slice(0, 90);
+}
+
+function inferredDiseaseProfile(inferred: string): DiseaseProfile {
+  if (!inferred || /^(condition|disease|illness|problem)$/.test(inferred)) {
+    return {
+      group: "biomedical condition",
+      canonical: "condition not confirmed",
+      medicalTerms: [
+        "condition not confirmed",
+        "differential diagnosis",
+        "target validation",
+        "comparative biomedical literature",
+      ],
+      targetGenes: ["TP53", "PTEN", "CD274", "PDCD1"],
+      kindHints: ["target validation", "biomarker"],
+    };
+  }
+
+  if (/^(cancer|tumou?r|carcinoma|sarcoma)$/.test(inferred)) {
+    return {
+      group: "oncology condition",
+      canonical: "cancer type not specified",
+      medicalTerms: [
+        "oncology condition",
+        "tumor classification",
+        "molecular oncology",
+        "target validation",
+      ],
+      targetGenes: ["TP53", "PTEN", "CD274", "PDCD1", "MYC", "KRAS"],
+      kindHints: ["oncology", "targeted therapy", "biomarker"],
+    };
+  }
+
+  if (/\b(cancer|tumou?r|carcinoma|sarcoma)\b/.test(inferred)) {
+    const site = inferred.replace(/\b(cancer|tumou?r|carcinoma|sarcoma)\b/g, " ").replace(/\s+/g, " ").trim();
+    const carcinoma = site ? `${site} carcinoma` : inferred;
+    return {
+      group: inferred,
+      canonical: inferred,
+      medicalTerms: unique([
+        inferred,
+        carcinoma,
+        `${site || inferred} oncology`,
+        "molecular oncology",
+        "target validation",
+      ]),
+      targetGenes: ["TP53", "PTEN", "CD274", "PDCD1", "MYC", "KRAS"],
+      kindHints: ["oncology", "targeted therapy", "biomarker"],
+    };
+  }
+
+  return {
+    group: inferred,
+    canonical: inferred,
+    medicalTerms: [
+      inferred,
+      "differential diagnosis",
+      "target validation",
+      "comparative biomedical literature",
+    ],
+    targetGenes: ["TP53", "PTEN", "CD274", "PDCD1"],
+    kindHints: ["target validation", "biomarker"],
+  };
+}
+
 function extractDisease(clean: string, raw: string): DiseaseProfile {
   const profiled = diseaseProfiles.find((profile) =>
     profile.aliases.some((alias) => new RegExp(`\\b${alias}\\b`).test(clean)),
@@ -312,24 +557,7 @@ function extractDisease(clean: string, raw: string): DiseaseProfile {
     return profiled;
   }
 
-  const inferred = raw
-    .replace(/\b(cure|treat|treatment|therapy|fix|for|my|a|an|the|please|make)\b/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80);
-
-  return {
-    group: inferred || "biomedical condition",
-    canonical: inferred || "condition not confirmed",
-    medicalTerms: [
-      inferred || "condition not confirmed",
-      "differential diagnosis",
-      "target validation",
-      "comparative biomedical literature",
-    ],
-    targetGenes: ["TP53", "PTEN", "CD274", "PDCD1"],
-    kindHints: ["target validation", "biomarker"],
-  };
+  return inferredDiseaseProfile(inferConditionText(normalizeText(raw)));
 }
 
 function extractIntent(clean: string) {
@@ -350,7 +578,9 @@ function normalizeRequest(query: string): NormalizedRequest {
   const species = extractSpecies(clean);
   const disease = extractDisease(clean, query);
   const directSpecies = species.common !== "unspecified species";
-  const directDisease = disease.canonical !== "condition not confirmed";
+  const directDisease =
+    disease.canonical !== "condition not confirmed" &&
+    disease.canonical !== "cancer type not specified";
   const intent = extractIntent(clean);
   const speciesPrefix =
     species.common === "unspecified species" ? "" : `${species.common} `;
@@ -369,6 +599,17 @@ function normalizeRequest(query: string): NormalizedRequest {
     `("${disease.canonical}" OR "${disease.group}")${species.common === "unspecified species" ? "" : ` AND ("${species.common}" OR "${species.scientific}")`}`,
     `${terms.slice(0, 4).join(" ")} ${disease.targetGenes.slice(0, 3).join(" ")}`.trim(),
   ];
+  const evidenceQuestions = [
+    `What recent studies connect ${disease.canonical} with ${species.scientific}?`,
+    `Which genes or proteins are repeatedly discussed for ${disease.canonical}?`,
+    `Are there public accession or structure records for the top targets?`,
+  ];
+  const sourcePlan = [
+    "Use LLM terminology to form source-specific search queries.",
+    "Search Europe PMC/PubMed for recent literature.",
+    "Search UniProt and NCBI for accession-linked target records.",
+    "Check AlphaFold DB for public structure files.",
+  ];
 
   return {
     plain: query,
@@ -385,6 +626,8 @@ function normalizeRequest(query: string): NormalizedRequest {
     terms,
     targetGenes: disease.targetGenes,
     searchQueries,
+    evidenceQuestions,
+    sourcePlan,
     taxonomyId: species.taxonomyId,
     needsClarification: !directSpecies || !directDisease,
     terminologySource: "rules",
@@ -419,7 +662,7 @@ function makeSafetyAssessment(normalized: NormalizedRequest): SafetyAssessment {
 }
 
 function buildLlmPrompt(query: string, fallback: NormalizedRequest) {
-  return `Normalize this biomedical research request for literature and accession lookup.
+  return `Act as the biomedical research planner for this app. Convert the user's plain-language request into precise medical terminology, source-searchable genes, and live retrieval queries.
 
 User request:
 ${query}
@@ -430,7 +673,15 @@ condition=${fallback.condition}
 terms=${fallback.terms.join("; ")}
 target_genes=${fallback.targetGenes.join(", ")}
 
-Return only terminology and search metadata. Do not provide treatment instructions, wet-lab steps, dosages, therapeutic constructs, DNA/RNA/protein sequences, or clinical advice. If the user says "blood cancer", include leukemia and hematologic malignancy terminology. Prefer medically precise terms and source-searchable gene symbols.`;
+Rules:
+- Return only JSON matching the schema.
+- Do not provide treatment instructions, wet-lab steps, dosages, therapeutic constructs, DNA/RNA/protein sequences, or clinical advice.
+- Do not use "malignant neoplasm" or a bare "neoplasm" as the condition when the request contains a more specific clue such as an organ, tissue, species, syndrome, or blood/immune context.
+- If the user says "blood cancer", include leukemia, hematologic malignancy, and the major leukemia subtype search terms.
+- If the user asks for "[site] cancer" and the exact subtype is unclear, preserve "[site] cancer" as condition and include likely medical synonyms such as "[site] carcinoma" in terms.
+- Build 4-6 source queries that Europe PMC/PubMed can actually run. Make them specific, recent-study oriented, and include species plus scientific organism when known.
+- Include 3-5 evidence questions and a source plan for literature, accession, structure, and model-routing lookup.
+- Prefer real HGNC/VGNC-style gene symbols and public database terms over broad words.`;
 }
 
 function extractResponseText(payload: unknown) {
@@ -486,6 +737,12 @@ function mergeLlmTerminology(
     fallback.searchQueries,
     6,
   );
+  const evidenceQuestions = cleanArray(
+    value.evidenceQuestions,
+    fallback.evidenceQuestions,
+    6,
+  );
+  const sourcePlan = cleanArray(value.sourcePlan, fallback.sourcePlan, 6);
   const organism =
     typeof value.organism === "string" && value.organism.trim()
       ? value.organism.trim()
@@ -522,6 +779,8 @@ function mergeLlmTerminology(
     terms,
     targetGenes,
     searchQueries,
+    evidenceQuestions,
+    sourcePlan,
     taxonomyId:
       typeof value.taxonomyId === "string" && value.taxonomyId.trim()
         ? value.taxonomyId.trim()
@@ -541,9 +800,9 @@ async function generateLlmTerminology(query: string, fallback: NormalizedRequest
   const model = env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
   const baseUrl = (env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
   const status: ProviderStatus = {
-    provider: "Terminology LLM",
+    provider: "LLM research planner",
     state: "empty",
-    detail: "OPENAI_API_KEY is not configured; used deterministic terminology fallback.",
+    detail: "OPENAI_API_KEY is not configured; used deterministic research planning fallback.",
   };
 
   if (!apiKey) {
@@ -563,14 +822,14 @@ async function generateLlmTerminology(query: string, fallback: NormalizedRequest
           {
             role: "system",
             content:
-              "You are a biomedical terminology normalizer for a research retrieval system. Return precise, searchable terminology only. Never provide clinical instructions or novel biological sequences.",
+              "You are a biomedical research planner for a live retrieval system. Return precise terminology, source queries, target genes, and search strategy only. Never provide clinical instructions or novel biological sequences.",
           },
           {
             role: "user",
             content: buildLlmPrompt(query, fallback),
           },
         ],
-        max_output_tokens: 1400,
+        max_output_tokens: 2200,
         text: {
           format: {
             type: "json_schema",
@@ -591,6 +850,8 @@ async function generateLlmTerminology(query: string, fallback: NormalizedRequest
                 "terms",
                 "targetGenes",
                 "searchQueries",
+                "evidenceQuestions",
+                "sourcePlan",
                 "needsClarification",
               ],
               properties: {
@@ -614,6 +875,14 @@ async function generateLlmTerminology(query: string, fallback: NormalizedRequest
                   type: "array",
                   items: { type: "string" },
                 },
+                evidenceQuestions: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                sourcePlan: {
+                  type: "array",
+                  items: { type: "string" },
+                },
                 needsClarification: { type: "boolean" },
               },
             },
@@ -625,7 +894,7 @@ async function generateLlmTerminology(query: string, fallback: NormalizedRequest
     const outputText = extractResponseText(payload);
     const parsed = JSON.parse(outputText) as Partial<LlmTerminology>;
     status.state = "ok";
-    status.detail = `Generated terminology with ${model} and used it for source queries.`;
+    status.detail = `Generated terminology, target genes, source queries, and retrieval plan with ${model}.`;
 
     return {
       normalized: mergeLlmTerminology(query, fallback, parsed, model),
@@ -633,7 +902,7 @@ async function generateLlmTerminology(query: string, fallback: NormalizedRequest
     };
   } catch (error) {
     status.state = "error";
-    status.detail = `LLM terminology failed; used deterministic fallback. ${
+    status.detail = `LLM research planning failed; used deterministic fallback. ${
       error instanceof Error ? error.message : "Unknown error"
     }`;
     return { normalized: fallback, status };
@@ -666,6 +935,48 @@ function scoreEvidence(item: {
     else if (year >= 2015) score += 1;
   }
   return score;
+}
+
+function isSpecificCondition(normalized: NormalizedRequest) {
+  return (
+    normalized.condition !== "condition not confirmed" &&
+    normalized.condition !== "cancer type not specified" &&
+    !/not confirmed|not specified/i.test(normalized.condition)
+  );
+}
+
+function isRelevantEvidence(
+  item: {
+    title?: string;
+    abstractText?: string;
+  },
+  normalized: NormalizedRequest,
+) {
+  if (!isSpecificCondition(normalized)) return true;
+
+  const haystack = `${item.title ?? ""} ${item.abstractText ?? ""}`.toLowerCase();
+  const genericTerms = new Set([
+    "recent study",
+    "sequence accession",
+    "target validation",
+    "targeted therapy",
+    "biomarker",
+    "molecular oncology",
+    "comparative biomedical literature",
+  ]);
+  const diseaseTerms = unique([
+    normalized.condition,
+    normalized.diseaseGroup,
+    ...normalized.terms,
+  ])
+    .map((term) => term.toLowerCase())
+    .filter((term) => term.length >= 4 && !genericTerms.has(term));
+  const geneTerms = normalized.targetGenes.map((gene) => gene.toLowerCase()).filter((gene) => gene.length >= 3);
+
+  return (
+    diseaseTerms.some((term) => haystack.includes(term)) ||
+    geneTerms.some((gene) => new RegExp(`\\b${escapeRegExp(gene)}\\b`, "i").test(haystack))
+  );
 }
 
 function classifyEvidence(title: string, abstractText: string | undefined): EvidenceSignal {
@@ -708,19 +1019,58 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-function buildEuropePmcQuery(normalized: NormalizedRequest) {
-  const llmQuery = normalized.searchQueries[0]?.replace(/\s+/g, " ").trim();
-  if (llmQuery) {
-    return `${llmQuery} sort_date:y`;
-  }
+type EuropePmcResultRow = {
+  id?: string;
+  pmid?: string;
+  pmcid?: string;
+  doi?: string;
+  title?: string;
+  journalTitle?: string;
+  pubYear?: string;
+  abstractText?: string;
+  source?: string;
+  pubType?: string;
+};
 
+function stripEuropePmcSort(value: string) {
+  return value.replace(/\bsort_date\s*:\s*y\b/gi, " ").replace(/\s+/g, " ").trim();
+}
+
+function buildEuropePmcQueries(normalized: NormalizedRequest) {
+  const planned = normalized.searchQueries.map(stripEuropePmcSort).filter(Boolean);
   const species =
     normalized.speciesCommon === "unspecified species"
       ? ""
       : `"${normalized.speciesCommon}" OR "${normalized.organism}"`;
   const disease = `"${normalized.condition}" OR "${normalized.diseaseGroup}"`;
   const genes = normalized.targetGenes.slice(0, 3).join(" OR ");
-  return `(${disease}) ${species ? `AND (${species})` : ""} ${genes ? `OR (${genes})` : ""} sort_date:y`;
+  const fallbackQueries = [
+    `(${disease}) ${species ? `AND (${species})` : ""} ${genes ? `AND (${genes})` : ""}`.trim(),
+    `${normalized.terms.slice(0, 5).map((term) => `"${term}"`).join(" OR ")} ${species ? `AND (${species})` : ""}`.trim(),
+    `${normalized.condition} ${normalized.organism} ${normalized.targetGenes.slice(0, 3).join(" ")}`.trim(),
+  ];
+
+  return unique([...planned, ...fallbackQueries])
+    .map(stripEuropePmcSort)
+    .filter((query) => query.length > 2)
+    .slice(0, 5)
+    .map((query) => `${query} sort_date:y`);
+}
+
+async function fetchEuropePmcRows(query: string) {
+  const url = new URL("https://www.ebi.ac.uk/europepmc/webservices/rest/search");
+  url.searchParams.set("query", query);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("pageSize", "8");
+  url.searchParams.set("resultType", "core");
+
+  const data = await fetchJson<{
+    resultList?: {
+      result?: EuropePmcResultRow[];
+    };
+  }>(url.toString());
+
+  return data.resultList?.result ?? [];
 }
 
 async function searchEuropePmc(normalized: NormalizedRequest) {
@@ -731,38 +1081,31 @@ async function searchEuropePmc(normalized: NormalizedRequest) {
   };
 
   try {
-    const url = new URL("https://www.ebi.ac.uk/europepmc/webservices/rest/search");
-    url.searchParams.set("query", buildEuropePmcQuery(normalized));
-    url.searchParams.set("format", "json");
-    url.searchParams.set("pageSize", "8");
-    url.searchParams.set("resultType", "core");
-
-    const data = await fetchJson<{
-      resultList?: {
-        result?: Array<{
-          id?: string;
-          pmid?: string;
-          pmcid?: string;
-          doi?: string;
-          title?: string;
-          journalTitle?: string;
-          pubYear?: string;
-          abstractText?: string;
-          source?: string;
-          pubType?: string;
-        }>;
-      };
-    }>(url.toString());
-
-    const rows = data.resultList?.result ?? [];
+    const queries = buildEuropePmcQueries(normalized);
+    const attempts = await Promise.allSettled(queries.map((query) => fetchEuropePmcRows(query)));
+    const rows = attempts
+      .flatMap((attempt) => (attempt.status === "fulfilled" ? attempt.value : []))
+      .filter((row) => row.title && isRelevantEvidence(row, normalized));
+    const failures = attempts.filter((attempt) => attempt.status === "rejected").length;
     if (!rows.length) {
-      status.state = "empty";
-      status.detail = "No literature matches were returned for the normalized terms.";
+      status.state = failures === attempts.length ? "error" : "empty";
+      status.detail =
+        failures === attempts.length
+          ? "All planned literature queries failed."
+          : "No literature matches were returned for the normalized terms.";
       return { evidence: [] as EvidenceItem[], status };
     }
 
-    const evidence = rows
-      .filter((row) => row.title)
+    const dedupedRows = Array.from(
+      new Map(
+        rows.map((row) => [
+          row.pmid ?? row.pmcid ?? row.doi ?? row.id ?? row.title ?? crypto.randomUUID(),
+          row,
+        ]),
+      ).values(),
+    );
+
+    const evidence = dedupedRows
       .map((row, index): EvidenceItem => {
         const id = row.pmid ?? row.pmcid ?? row.doi ?? row.id ?? `${index}`;
         const href = row.pmid
@@ -789,6 +1132,9 @@ async function searchEuropePmc(normalized: NormalizedRequest) {
       .sort((a, b) => b.score - a.score)
       .slice(0, 6);
 
+    status.detail = `Ran ${queries.length} planned literature queries and merged ${dedupedRows.length} source records${
+      failures ? `; ${failures} query failed` : ""
+    }.`;
     return { evidence, status };
   } catch (error) {
     status.state = "error";
@@ -797,19 +1143,31 @@ async function searchEuropePmc(normalized: NormalizedRequest) {
   }
 }
 
-function uniprotLabel(result: {
+type UniProtResult = {
   uniProtkbId?: string;
   proteinDescription?: {
     recommendedName?: { fullName?: { value?: string } };
     submissionNames?: Array<{ fullName?: { value?: string } }>;
   };
-}) {
+  primaryAccession?: string;
+  entryType?: string;
+  sequence?: { length?: number };
+  organism?: { scientificName?: string };
+  genes?: Array<{ geneName?: { value?: string }; synonyms?: Array<{ value?: string }> }>;
+};
+
+function uniprotLabel(result: UniProtResult) {
   return (
     result.proteinDescription?.recommendedName?.fullName?.value ??
     result.proteinDescription?.submissionNames?.[0]?.fullName?.value ??
     result.uniProtkbId ??
     "Protein record"
   );
+}
+
+function isReviewedUniProt(result: UniProtResult) {
+  const entryType = result.entryType?.toLowerCase() ?? "";
+  return entryType.includes("swiss-prot") || /^uniprotkb reviewed\b/.test(entryType);
 }
 
 async function searchUniProt(normalized: NormalizedRequest) {
@@ -824,28 +1182,28 @@ async function searchUniProt(normalized: NormalizedRequest) {
   try {
     await Promise.all(
       genes.map(async (gene) => {
-        const url = new URL("https://rest.uniprot.org/uniprotkb/search");
         const organism = normalized.taxonomyId ? ` AND organism_id:${normalized.taxonomyId}` : "";
-        url.searchParams.set("query", `gene:${gene}${organism}`);
-        url.searchParams.set("format", "json");
-        url.searchParams.set("size", "1");
+        const queries = unique([
+          `gene:${gene}${organism} AND reviewed:true`,
+          `gene:${gene}${organism}`,
+          normalized.taxonomyId && normalized.taxonomyId !== "9606"
+            ? `gene:${gene} AND organism_id:9606 AND reviewed:true`
+            : "",
+          `gene:${gene} AND reviewed:true`,
+        ]).filter(Boolean);
 
-        const data = await fetchJson<{
-          results?: Array<{
-            primaryAccession?: string;
-            uniProtkbId?: string;
-            entryType?: string;
-            sequence?: { length?: number };
-            organism?: { scientificName?: string };
-            genes?: Array<{ geneName?: { value?: string }; synonyms?: Array<{ value?: string }> }>;
-            proteinDescription?: {
-              recommendedName?: { fullName?: { value?: string } };
-              submissionNames?: Array<{ fullName?: { value?: string } }>;
-            };
-          }>;
-        }>(url.toString());
+        let result: UniProtResult | undefined;
+        for (const query of queries) {
+          const url = new URL("https://rest.uniprot.org/uniprotkb/search");
+          url.searchParams.set("query", query);
+          url.searchParams.set("format", "json");
+          url.searchParams.set("size", "1");
 
-        const result = data.results?.[0];
+          const data = await fetchJson<{ results?: UniProtResult[] }>(url.toString());
+          result = data.results?.[0];
+          if (result?.primaryAccession) break;
+        }
+
         const accession = result?.primaryAccession;
         if (!result || !accession) return;
 
@@ -859,7 +1217,7 @@ async function searchUniProt(normalized: NormalizedRequest) {
             gene,
           ]),
           length: result.sequence?.length,
-          reviewed: result.entryType?.toLowerCase().includes("reviewed"),
+          reviewed: isReviewedUniProt(result),
           href: `https://www.uniprot.org/uniprotkb/${accession}/entry`,
         });
       }),
@@ -872,6 +1230,8 @@ async function searchUniProt(normalized: NormalizedRequest) {
     if (!deduped.length) {
       status.state = "empty";
       status.detail = "No UniProt accessions matched the species and target terms.";
+    } else if (deduped.some((item) => item.organism !== normalized.organism)) {
+      status.detail = "Found species-specific records where available and reviewed reference homologs when sparse.";
     }
 
     return { sequences: deduped, status };
@@ -963,6 +1323,28 @@ async function searchAlphaFold(sequences: SequenceCandidate[]) {
   const structures: StructureCandidate[] = [];
   const uniprot = sequences.filter((candidate) => candidate.database === "UniProt").slice(0, 4);
 
+  async function probeAlphaFoldFile(candidate: SequenceCandidate) {
+    for (const version of [6, 5, 4, 3]) {
+      const entryId = `AF-${candidate.accession}-F1`;
+      const pdbUrl = `https://alphafold.ebi.ac.uk/files/${entryId}-model_v${version}.pdb`;
+      try {
+        await fetchWithTimeout(pdbUrl, { method: "HEAD" });
+        candidate.structureHref = `https://alphafold.ebi.ac.uk/entry/${candidate.accession}`;
+        return {
+          accession: candidate.accession,
+          label: candidate.label,
+          source: "AlphaFold DB" as const,
+          href: candidate.structureHref,
+          pdbUrl,
+          confidence: `public AlphaFold model v${version}`,
+        };
+      } catch {
+        // Try the next known AlphaFold model version.
+      }
+    }
+    return null;
+  }
+
   try {
     await Promise.all(
       uniprot.map(async (candidate) => {
@@ -975,10 +1357,22 @@ async function searchAlphaFold(sequences: SequenceCandidate[]) {
             pdbUrl?: string;
             cifUrl?: string;
             confidenceScore?: number;
+            globalMetricValue?: number;
+            latestVersion?: number;
           }>>(url);
           const row = rows[0];
-          if (!row) return;
-          candidate.structureHref = `https://alphafold.ebi.ac.uk/entry/${row.entryId ?? `AF-${candidate.accession}-F1`}`;
+          if (!row) {
+            const fallback = candidate.reviewed ? await probeAlphaFoldFile(candidate) : null;
+            if (fallback) structures.push(fallback);
+            return;
+          }
+          candidate.structureHref = `https://alphafold.ebi.ac.uk/entry/${row.uniprotAccession ?? candidate.accession}`;
+          const confidenceScore =
+            typeof row.confidenceScore === "number"
+              ? row.confidenceScore
+              : typeof row.globalMetricValue === "number"
+                ? row.globalMetricValue
+                : undefined;
           structures.push({
             accession: row.uniprotAccession ?? candidate.accession,
             label: row.uniprotDescription ?? candidate.label,
@@ -987,12 +1381,15 @@ async function searchAlphaFold(sequences: SequenceCandidate[]) {
             pdbUrl: row.pdbUrl,
             cifUrl: row.cifUrl,
             confidence:
-              typeof row.confidenceScore === "number"
-                ? `mean pLDDT ${Math.round(row.confidenceScore)}`
+              typeof confidenceScore === "number"
+                ? `mean pLDDT ${Math.round(confidenceScore)}`
+                : typeof row.latestVersion === "number"
+                  ? `public AlphaFold model v${row.latestVersion}`
                 : undefined,
           });
         } catch {
-          // Sparse species and genes often have no AlphaFold record; keep other checks running.
+          const fallback = candidate.reviewed ? await probeAlphaFoldFile(candidate) : null;
+          if (fallback) structures.push(fallback);
         }
       }),
     );
@@ -1060,6 +1457,319 @@ function routeModels(
   ];
 }
 
+function makeDeterministicSynthesis(base: ResearchBase): ResearchSynthesis {
+  const topEvidence = base.evidence[0];
+  const topSequence = base.sequences[0];
+  const topModel = base.modelRoutes.find((route) => route.fit === "Primary") ?? base.modelRoutes[0];
+
+  return {
+    source: "deterministic",
+    problem: `${base.normalized.plain} was normalized to ${base.normalized.condition} in ${base.normalized.organism}.`,
+    research: topEvidence
+      ? `The strongest retrieved source is "${topEvidence.title}" (${topEvidence.year}); review the linked record before treating it as actionable evidence.`
+      : "No strong live literature hit was returned, so the result should be treated as an unresolved research lead.",
+    sequenceRationale: topSequence
+      ? `${topSequence.database} accession ${topSequence.accession} was selected as a public reference candidate for ${topSequence.genes.join(", ") || "the target set"}.`
+      : "No accession-linked record was selected; add a validated target before running sequence or structure models.",
+    modelPlan: topModel
+      ? `${topModel.name} is the leading model route because ${topModel.note}`
+      : "No model route was selected.",
+    caveats: [
+      "The fallback synthesis is not an LLM interpretation.",
+      "Species-specific evidence may be sparse for unusual organism and condition combinations.",
+      "Therapeutic sequence generation remains blocked until expert review.",
+    ],
+    evidenceOrder: base.evidence.map((item) => item.id),
+    accessionOrder: base.sequences.map((item) => item.accession),
+  };
+}
+
+function buildSynthesisPrompt(base: ResearchBase) {
+  const evidence = base.evidence.slice(0, 6).map((item) => ({
+    id: item.id,
+    title: item.title,
+    year: item.year,
+    signal: item.signal,
+    score: item.score,
+    finding: item.finding,
+    href: item.href,
+  }));
+  const sequences = base.sequences.slice(0, 10).map((item) => ({
+    accession: item.accession,
+    database: item.database,
+    label: item.label,
+    organism: item.organism,
+    genes: item.genes,
+    length: item.length,
+    href: item.href,
+  }));
+  const structures = base.structures.slice(0, 4).map((item) => ({
+    accession: item.accession,
+    label: item.label,
+    source: item.source,
+    href: item.href,
+    confidence: item.confidence,
+  }));
+  const models = base.modelRoutes.map((item) => ({
+    name: item.name,
+    fit: item.fit,
+    role: item.role,
+    note: item.note,
+    endpoint: item.endpoint,
+  }));
+
+  return `Synthesize this completed biomedical retrieval run.
+
+Original request:
+${base.query}
+
+Normalized request:
+${JSON.stringify(base.normalized)}
+
+Retrieved evidence:
+${JSON.stringify(evidence)}
+
+Reference accessions:
+${JSON.stringify(sequences)}
+
+Structure candidates:
+${JSON.stringify(structures)}
+
+Model routes:
+${JSON.stringify(models)}
+
+Requirements:
+- Use the retrieved records as the grounding source. Do not invent paper titles, accessions, structures, citations, or URLs.
+- You may use web search only to add high-level context or very recent confirmation, but keep source-specific claims tied to retrieved records when possible.
+- If the evidence is sparse, indirect, or not species-specific, state that clearly.
+- Never output nucleotide, amino-acid, guide-RNA, viral-vector, plasmid, protocol, dosage, or clinical treatment instructions.
+- Keep the condition specific. Do not summarize this as "malignant neoplasm" when a clearer term exists.
+- Return JSON only.`;
+}
+
+function mergeLlmSynthesis(
+  value: Partial<LlmResearchSynthesis>,
+  fallback: ResearchSynthesis,
+  model: string,
+): ResearchSynthesis {
+  const textField = (field: keyof Pick<LlmResearchSynthesis, "problem" | "research" | "sequenceRationale" | "modelPlan">) =>
+    typeof value[field] === "string" && value[field].trim()
+      ? value[field].trim()
+      : fallback[field];
+
+  return {
+    source: "llm",
+    problem: textField("problem"),
+    research: textField("research"),
+    sequenceRationale: textField("sequenceRationale"),
+    modelPlan: textField("modelPlan"),
+    caveats: cleanArray(value.caveats, fallback.caveats, 6),
+    evidenceOrder: cleanArray(value.evidenceOrder, fallback.evidenceOrder, 12),
+    accessionOrder: cleanArray(value.accessionOrder, fallback.accessionOrder, 12),
+    webFindings: cleanArray(value.webFindings, [], 5),
+    llmModel: model,
+  };
+}
+
+function shouldUseHostedWebSearch(env: RuntimeEnv, baseUrl: string) {
+  if (env.OPENAI_ENABLE_WEB_SEARCH?.toLowerCase() === "false") return false;
+  return baseUrl.includes("api.openai.com") || baseUrl.includes("platform.openai.com");
+}
+
+function synthesisSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "problem",
+      "research",
+      "sequenceRationale",
+      "modelPlan",
+      "caveats",
+      "evidenceOrder",
+      "accessionOrder",
+      "webFindings",
+    ],
+    properties: {
+      problem: { type: "string" },
+      research: { type: "string" },
+      sequenceRationale: { type: "string" },
+      modelPlan: { type: "string" },
+      caveats: {
+        type: "array",
+        items: { type: "string" },
+      },
+      evidenceOrder: {
+        type: "array",
+        items: { type: "string" },
+      },
+      accessionOrder: {
+        type: "array",
+        items: { type: "string" },
+      },
+      webFindings: {
+        type: "array",
+        items: { type: "string" },
+      },
+    },
+  };
+}
+
+async function postOpenAiResponseJson<T>(
+  env: RuntimeEnv,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const apiKey = env.OPENAI_API_KEY;
+  const baseUrl = (env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
+
+  const response = await fetchWithTimeout(`${baseUrl}/responses`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json();
+  const outputText = extractResponseText(payload);
+  return JSON.parse(outputText) as T;
+}
+
+async function generateResearchSynthesis(base: ResearchBase) {
+  const env = await getRuntimeEnv();
+  const model = env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
+  const baseUrl = (env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
+  const fallback = makeDeterministicSynthesis(base);
+  const status: ProviderStatus = {
+    provider: "LLM research synthesis",
+    state: "empty",
+    detail: "OPENAI_API_KEY is not configured; used deterministic synthesis.",
+  };
+
+  if (!env.OPENAI_API_KEY) {
+    return { synthesis: fallback, status };
+  }
+
+  const requestBody: Record<string, unknown> = {
+    model,
+    input: [
+      {
+        role: "system",
+        content:
+          "You are a biomedical research synthesis agent. Ground output in provided source records, rank references, and keep all outputs nonclinical and sequence-gated.",
+      },
+      {
+        role: "user",
+        content: buildSynthesisPrompt(base),
+      },
+    ],
+    max_output_tokens: 2200,
+    text: {
+      format: {
+        type: "json_schema",
+        name: "biomedical_research_synthesis",
+        strict: true,
+        schema: synthesisSchema(),
+      },
+    },
+  };
+  const webTool = env.OPENAI_WEB_SEARCH_TOOL || "web_search";
+  const canUseWebSearch = shouldUseHostedWebSearch(env, baseUrl);
+
+  try {
+    const parsed = await postOpenAiResponseJson<Partial<LlmResearchSynthesis>>(
+      env,
+      canUseWebSearch ? { ...requestBody, tools: [{ type: webTool }] } : requestBody,
+    );
+    status.state = "ok";
+    status.detail = `Synthesized the retrieved evidence, accessions, and model route with ${model}${
+      canUseWebSearch ? " using hosted web search where available" : ""
+    }.`;
+    return { synthesis: mergeLlmSynthesis(parsed, fallback, model), status };
+  } catch (error) {
+    if (canUseWebSearch) {
+      try {
+        const parsed = await postOpenAiResponseJson<Partial<LlmResearchSynthesis>>(env, requestBody);
+        status.state = "ok";
+        status.detail = `Synthesized retrieved biomedical sources with ${model}; hosted web search was unavailable.`;
+        return { synthesis: mergeLlmSynthesis(parsed, fallback, model), status };
+      } catch (retryError) {
+        status.state = "error";
+        status.detail = `LLM synthesis failed; used deterministic synthesis. ${
+          retryError instanceof Error ? retryError.message : "Unknown error"
+        }`;
+        return { synthesis: fallback, status };
+      }
+    }
+
+    status.state = "error";
+    status.detail = `LLM synthesis failed; used deterministic synthesis. ${
+      error instanceof Error ? error.message : "Unknown error"
+    }`;
+    return { synthesis: fallback, status };
+  }
+}
+
+function reorderEvidence(evidence: EvidenceItem[], order: string[]) {
+  if (!order.length) return evidence;
+  const rank = new Map(order.map((id, index) => [id, index]));
+  return [...evidence].sort((a, b) => {
+    const aRank = rank.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+    const bRank = rank.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+    return aRank === bRank ? b.score - a.score : aRank - bRank;
+  });
+}
+
+function reorderSequences(sequences: SequenceCandidate[], order: string[]) {
+  if (!order.length) return sequences;
+  const rank = new Map(order.map((accession, index) => [accession, index]));
+  return [...sequences].sort((a, b) => {
+    const aRank = rank.get(a.accession) ?? Number.MAX_SAFE_INTEGER;
+    const bRank = rank.get(b.accession) ?? Number.MAX_SAFE_INTEGER;
+    return aRank - bRank;
+  });
+}
+
+function sortSequencesByTargets(sequences: SequenceCandidate[], targetGenes: string[]) {
+  const geneRank = new Map(targetGenes.map((gene, index) => [gene.toUpperCase(), index]));
+  const databaseRank = new Map<SequenceCandidate["database"], number>([
+    ["UniProt", 0],
+    ["NCBI Protein", 1],
+    ["NCBI Gene", 2],
+  ]);
+
+  return [...sequences].sort((a, b) => {
+    const aGeneRank = Math.min(
+      ...a.genes.map((gene) => geneRank.get(gene.toUpperCase()) ?? Number.MAX_SAFE_INTEGER),
+    );
+    const bGeneRank = Math.min(
+      ...b.genes.map((gene) => geneRank.get(gene.toUpperCase()) ?? Number.MAX_SAFE_INTEGER),
+    );
+    if (aGeneRank !== bGeneRank) return aGeneRank - bGeneRank;
+
+    const aDatabaseRank = databaseRank.get(a.database) ?? Number.MAX_SAFE_INTEGER;
+    const bDatabaseRank = databaseRank.get(b.database) ?? Number.MAX_SAFE_INTEGER;
+    if (aDatabaseRank !== bDatabaseRank) return aDatabaseRank - bDatabaseRank;
+
+    const aReviewedRank = a.reviewed ? 0 : 1;
+    const bReviewedRank = b.reviewed ? 0 : 1;
+    if (aReviewedRank !== bReviewedRank) return aReviewedRank - bReviewedRank;
+
+    return a.accession.localeCompare(b.accession);
+  });
+}
+
+function reorderStructures(structures: StructureCandidate[], order: string[]) {
+  if (!order.length) return structures;
+  const rank = new Map(order.map((accession, index) => [accession, index]));
+  return [...structures].sort((a, b) => {
+    const aRank = rank.get(a.accession) ?? Number.MAX_SAFE_INTEGER;
+    const bRank = rank.get(b.accession) ?? Number.MAX_SAFE_INTEGER;
+    return aRank - bRank;
+  });
+}
+
 function buildPacket(result: Omit<ResearchResult, "packet">) {
   const evidence =
     result.evidence
@@ -1085,11 +1795,34 @@ function buildPacket(result: Omit<ResearchResult, "packet">) {
   const models = result.modelRoutes
     .map((item) => `- ${item.name}: ${item.fit} - ${item.role}`)
     .join("\n");
+  const caveats =
+    result.synthesis.caveats.map((item) => `- ${item}`).join("\n") ||
+    "- Review source links and accessions before use.";
+  const questions =
+    result.normalized.evidenceQuestions.map((item) => `- ${item}`).join("\n") ||
+    "- No LLM evidence questions were generated.";
+  const sourcePlan =
+    result.normalized.sourcePlan.map((item) => `- ${item}`).join("\n") ||
+    "- Search trusted literature and public sequence/structure databases.";
+  const webFindings =
+    result.synthesis.webFindings?.length
+      ? `\nLLM web context:\n${result.synthesis.webFindings.map((item) => `- ${item}`).join("\n")}\n`
+      : "";
+  const primarySequence = result.sequences[0];
+  const primaryStructure =
+    result.structures.find((item) => item.accession === primarySequence?.accession) ??
+    result.structures[0];
 
   return `RESEARCH PACKET
 
 Original request:
 ${result.query}
+
+LLM research synthesis:
+Problem: ${result.synthesis.problem}
+Research: ${result.synthesis.research}
+Reference/accession rationale: ${result.synthesis.sequenceRationale}
+Model plan: ${result.synthesis.modelPlan}
 
 Medical terminology:
 ${result.normalized.medical}
@@ -1103,6 +1836,12 @@ ${result.normalized.condition}
 Search terms:
 ${result.normalized.terms.join("; ")}
 
+Evidence questions:
+${questions}
+
+Source plan:
+${sourcePlan}
+${webFindings}
 Evidence scan:
 ${evidence}
 
@@ -1121,9 +1860,12 @@ WITHHELD_BY_RESEARCH_SAFETY_GATE
 Reason:
 ${result.safety.reason}
 
+Caveats:
+${caveats}
+
 Copyable modeling scaffold:
-target_accession=${result.sequences[0]?.accession ?? "[INSERT_VALIDATED_ACCESSION]"}
-structure_file=${result.structures[0]?.pdbUrl ?? result.structures[0]?.cifUrl ?? "[INSERT_PUBLIC_PDB_OR_CIF_URL]"}
+target_accession=${primarySequence?.accession ?? "[INSERT_VALIDATED_ACCESSION]"}
+structure_file=${primaryStructure?.pdbUrl ?? primaryStructure?.cifUrl ?? "[INSERT_PUBLIC_PDB_OR_CIF_URL]"}
 review_status=requires_qualified_biosafety_and_clinical_review`;
 }
 
@@ -1197,12 +1939,15 @@ async function runResearch(query: string): Promise<ResearchResult> {
     searchUniProt(normalized),
     searchNcbiProtein(normalized),
   ]);
-  const sequences = Array.from(
-    new Map([...uniProt.sequences, ...ncbi.sequences].map((item) => [`${item.database}:${item.accession}`, item])).values(),
+  const sequences = sortSequencesByTargets(
+    Array.from(
+      new Map([...uniProt.sequences, ...ncbi.sequences].map((item) => [`${item.database}:${item.accession}`, item])).values(),
+    ),
+    normalized.targetGenes,
   ).slice(0, 10);
   const alphaFold = await searchAlphaFold(sequences);
   const modelRoutes = routeModels(normalized, sequences, alphaFold.structures);
-  const base: Omit<ResearchResult, "packet"> = {
+  const base: ResearchBase = {
     query,
     retrievedAt: new Date().toISOString(),
     normalized,
@@ -1214,10 +1959,20 @@ async function runResearch(query: string): Promise<ResearchResult> {
     safety,
     cached: false,
   };
+  const synthesisResult = await generateResearchSynthesis(base);
+  const finalSequences = reorderSequences(base.sequences, synthesisResult.synthesis.accessionOrder);
+  const finalBase: Omit<ResearchResult, "packet"> = {
+    ...base,
+    evidence: reorderEvidence(base.evidence, synthesisResult.synthesis.evidenceOrder),
+    sequences: finalSequences,
+    structures: reorderStructures(base.structures, finalSequences.map((item) => item.accession)),
+    synthesis: synthesisResult.synthesis,
+    providerStatus: [...base.providerStatus, synthesisResult.status],
+  };
 
   return {
-    ...base,
-    packet: buildPacket(base),
+    ...finalBase,
+    packet: buildPacket(finalBase),
   };
 }
 

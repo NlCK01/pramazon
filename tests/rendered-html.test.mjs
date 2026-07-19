@@ -36,6 +36,7 @@ test("server-renders the Helix Triage research console", async () => {
   assert.match(html, /Run new research/);
   assert.match(html, /cure to blood cancer for human/);
   assert.match(html, /Europe PMC/);
+  assert.match(html, /LLM research synthesis/);
   assert.match(html, /NCBI E-utilities/);
   assert.match(html, /UniProt/);
   assert.match(html, /NVIDIA model route/);
@@ -63,16 +64,22 @@ test("wires the live research pipeline and cache", async () => {
   assert.match(page, /Use cached packet/);
   assert.match(page, /LLM terminology/);
   assert.match(page, /rules fallback/);
+  assert.match(page, /LLM synthesis/);
   assert.match(page, /ngl@2\.3\.0/);
   assert.match(page, /Sequence gated/);
-  assert.match(route, /Terminology LLM/);
+  assert.match(route, /LLM research planner/);
+  assert.match(route, /LLM research synthesis/);
   assert.match(route, /OPENAI_API_KEY/);
   assert.match(route, /\/responses/);
+  assert.match(route, /web_search/);
   assert.match(route, /json_schema/);
   assert.match(route, /searchQueries/);
+  assert.match(route, /evidenceQuestions/);
+  assert.match(route, /sourcePlan/);
   assert.match(route, /blood cancer/);
   assert.match(route, /leukemia/);
   assert.match(route, /hematologic malignancy/);
+  assert.doesNotMatch(route, /canonical:\s*"malignant neoplasm"/);
   assert.match(route, /Europe PMC/);
   assert.match(route, /eutils\.ncbi\.nlm\.nih\.gov/);
   assert.match(route, /rest\.uniprot\.org/);
@@ -84,6 +91,7 @@ test("wires the live research pipeline and cache", async () => {
   assert.match(migration, /CREATE TABLE `research_runs`/);
   assert.match(envExample, /OPENAI_API_KEY=/);
   assert.match(envExample, /OPENAI_MODEL=gpt-5-mini/);
+  assert.match(envExample, /OPENAI_ENABLE_WEB_SEARCH=true/);
   assert.doesNotMatch(page, /SkeletonPreview|_sites-preview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 

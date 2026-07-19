@@ -26,5 +26,7 @@ declare module "cloudflare:workers" {
     OPENAI_API_KEY?: string;
     OPENAI_MODEL?: string;
     OPENAI_BASE_URL?: string;
+    OPENAI_ENABLE_WEB_SEARCH?: string;
+    OPENAI_WEB_SEARCH_TOOL?: string;
   };
 }
