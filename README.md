@@ -5,8 +5,6 @@ hackathon. A user types a cancer research prompt, and the app turns it into
 oncology terminology, live literature results, accession-backed protein cards,
 NIH/NCBI iCn3D structure previews, and a copyable research packet.
 
-[Live demo](https://helix-triage.nxlck0.chatgpt.site)
-
 ## Screenshots
 
 The first screen behaves like a research marketplace: search a cancer problem,
