@@ -164,7 +164,7 @@ input {
 
 .market-search {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr) 92px;
+  grid-template-columns: 150px minmax(0, 1fr) 56px;
   height: 44px;
 }
 
@@ -204,7 +204,6 @@ input {
   color: #111111;
   cursor: pointer;
   font-weight: 700;
-  white-space: nowrap;
 }
 
 .market-search:focus-within {
@@ -1043,182 +1042,6 @@ pre {
   color: #111111;
 }
 
-.packet-shell {
-  min-height: 100vh;
-  padding: 24px;
-  background: var(--page);
-}
-
-.packet-header,
-.packet-summary article,
-.packet-protein,
-.packet-raw,
-.packet-empty {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 2px 6px rgba(15, 17, 17, 0.08);
-}
-
-.packet-header {
-  display: grid;
-  grid-template-columns: 170px minmax(0, 1fr) auto;
-  gap: 18px;
-  align-items: center;
-  padding: 18px;
-}
-
-.packet-brand {
-  color: #0f1111;
-  font-size: 1.8rem;
-  font-weight: 900;
-}
-
-.packet-header h1,
-.packet-empty h1 {
-  margin: 0;
-  color: #111827;
-  font-size: clamp(2rem, 5vw, 3.4rem);
-  letter-spacing: -1px;
-}
-
-.packet-header p,
-.packet-summary p,
-.packet-protein p,
-.packet-empty p {
-  color: var(--muted);
-  line-height: 1.48;
-}
-
-.packet-header > span {
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.packet-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 16px;
-}
-
-.packet-summary article,
-.packet-raw,
-.packet-empty {
-  padding: 18px;
-}
-
-.packet-summary h2,
-.packet-protein h2,
-.packet-protein h3,
-.packet-raw h2 {
-  margin: 0;
-  color: #111827;
-}
-
-.packet-list {
-  display: grid;
-  gap: 16px;
-  margin-top: 16px;
-}
-
-.packet-protein {
-  padding: 18px;
-}
-
-.packet-protein-title {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
-.packet-protein-title span {
-  display: inline-flex;
-  margin-bottom: 8px;
-  border-radius: 999px;
-  padding: 5px 9px;
-  background: #fff8e7;
-  color: #8a4b00;
-  font-size: 0.78rem;
-  font-weight: 900;
-}
-
-.packet-protein-title a,
-.packet-paper,
-.packet-empty a {
-  color: var(--blue);
-  font-weight: 800;
-}
-
-.packet-protein-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 14px;
-}
-
-.packet-paper {
-  display: grid;
-  gap: 6px;
-  border: 1px solid #b6dce5;
-  border-radius: 6px;
-  padding: 10px 12px;
-  background: #f3fbfd;
-}
-
-.packet-paper span {
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.supplier-panel {
-  margin-top: 16px;
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
-}
-
-.supplier-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.supplier-grid a {
-  display: grid;
-  gap: 6px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 12px;
-  background: #ffffff;
-}
-
-.supplier-grid a:hover {
-  border-color: var(--orange-deep);
-}
-
-.supplier-grid span {
-  color: #8a4b00;
-  font-size: 0.72rem;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.supplier-grid strong {
-  color: var(--blue);
-  line-height: 1.32;
-}
-
-.supplier-grid small {
-  color: var(--muted);
-  line-height: 1.36;
-}
-
-.packet-raw {
-  margin-top: 16px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1256,14 +1079,8 @@ pre {
 
   .workbench,
   .output-band,
-  .architecture-band,
-  .packet-summary,
-  .packet-protein-grid {
+  .architecture-band {
     grid-template-columns: 1fr;
-  }
-
-  .supplier-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1279,25 +1096,11 @@ pre {
   }
 
   .market-search {
-    grid-template-columns: 112px minmax(0, 1fr) 86px;
+    grid-template-columns: 112px minmax(0, 1fr) 62px;
   }
 
   .cart-link {
     justify-self: start;
-  }
-
-  .packet-shell {
-    padding: 14px;
-  }
-
-  .packet-header,
-  .packet-protein-title {
-    grid-template-columns: 1fr;
-    display: grid;
-  }
-
-  .supplier-grid {
-    grid-template-columns: 1fr;
   }
 
   .hero-band,

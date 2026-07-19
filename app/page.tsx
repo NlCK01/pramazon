@@ -10,8 +10,6 @@ import type {
   StructureCandidate,
 } from "./lib/research-types";
 
-const PACKET_STORAGE_PREFIX = "pramazon:packet:";
-
 const searchTargets = [
   "LLM cancer planner",
   "Europe PMC oncology scan",
@@ -112,7 +110,7 @@ function icn3dUrl(structure: StructureCandidate | null) {
     url: file,
     width: "100%",
     height: "100%",
-    command: "set background transparent; style proteins cartoon; color orange",
+    command: "set background transparent",
     showcommand: "0",
     showtitle: "0",
     mobilemenu: "1",
@@ -275,27 +273,14 @@ export default function Home() {
     if (structure) setSelectedAccession(structure.accession);
   }
 
-  function openPacketPage() {
-    if (!result) return;
-    const selectedAccessions = cartAccessions.length
-      ? cartAccessions
-      : result.sequences.map((item) => item.accession);
-    const packetId =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-    localStorage.setItem(
-      `${PACKET_STORAGE_PREFIX}${packetId}`,
-      JSON.stringify({
-        result,
-        selectedAccessions,
-        createdAt: new Date().toISOString(),
-      }),
-    );
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
-    window.open(`/packet?run=${encodeURIComponent(packetId)}`, "_blank");
+  async function copyPacket() {
+    try {
+      await navigator.clipboard.writeText(packet);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
   }
 
   return (
@@ -530,13 +515,10 @@ export default function Home() {
               </button>
             ))}
           </div>
-          <button type="button" className="checkout-button" onClick={openPacketPage} disabled={!result}>
-            {copied ? "Packet opened" : "Open research packet"}
+          <button type="button" className="checkout-button" onClick={copyPacket} disabled={!result}>
+            {copied ? "Packet copied" : "Copy research packet"}
           </button>
-          <small>
-            Opens a combined packet with source papers, selected proteins, and company catalog
-            searches.
-          </small>
+          <small>No checkout occurs. This cart only selects public cancer protein references.</small>
         </aside>
       </section>
 
