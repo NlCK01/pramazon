@@ -78,7 +78,7 @@ input {
   top: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: 170px 170px minmax(280px, 1fr) 132px 88px 92px;
+  grid-template-columns: 190px 170px minmax(280px, 1fr) 132px 112px 126px;
   gap: 12px;
   align-items: center;
   min-height: 62px;
@@ -90,7 +90,7 @@ input {
 .brand {
   position: relative;
   display: grid;
-  width: 150px;
+  width: 178px;
   min-height: 46px;
   align-content: center;
   border: 1px solid transparent;
@@ -107,7 +107,7 @@ input {
 
 .brand span {
   color: #ffffff;
-  font-size: 1.68rem;
+  font-size: 1.48rem;
   font-weight: 800;
   letter-spacing: -1px;
   line-height: 1;
@@ -115,7 +115,7 @@ input {
 
 .brand i {
   position: absolute;
-  left: 54px;
+  left: 70px;
   right: 16px;
   bottom: 5px;
   height: 12px;
@@ -496,9 +496,40 @@ button:disabled {
 
 .product-card {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
+  grid-template-columns: minmax(280px, 0.92fr) minmax(0, 1.08fr);
   gap: 18px;
   padding: 16px;
+}
+
+.product-structure {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.structure-select {
+  justify-self: start;
+  min-height: 30px;
+  border-color: #c7e4ea;
+  border-radius: 999px;
+  background: #eef8fa;
+  color: var(--blue);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.structure-select:hover {
+  background: #dff2f6;
+}
+
+.product-structure .molecule-scene {
+  height: 280px;
+  margin-top: 0;
+}
+
+.product-structure .viewer-state {
+  left: 10px;
+  bottom: 10px;
 }
 
 .product-image {
@@ -549,19 +580,42 @@ button:disabled {
   font-size: 0.9rem;
 }
 
-.price {
-  margin: 8px 0 0;
-  color: #0f1111;
-  font-size: 1.45rem;
-  font-weight: 500;
-}
-
-.price sup {
-  font-size: 0.76rem;
-}
-
 .delivery {
   color: var(--green);
+  font-weight: 700;
+}
+
+.protein-explain {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.protein-explain section {
+  display: grid;
+  gap: 4px;
+}
+
+.protein-explain h4 {
+  margin: 0;
+  color: #111111;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.protein-explain p,
+.protein-explain a {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.46;
+}
+
+.protein-explain a {
+  color: var(--blue);
   font-weight: 700;
 }
 
@@ -1016,7 +1070,7 @@ pre {
 
 @media (max-width: 1180px) {
   .market-header {
-    grid-template-columns: 150px minmax(260px, 1fr) 90px;
+    grid-template-columns: 180px minmax(260px, 1fr) 126px;
   }
 
   .delivery-copy,

@@ -25,20 +25,20 @@ async function render() {
   );
 }
 
-test("server-renders the Protazon cancer protein marketplace", async () => {
+test("server-renders the Pramazon cancer protein marketplace", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Protazon<\/title>/i);
+  assert.match(html, /<title>Pramazon<\/title>/i);
   assert.match(html, /Cancer-only protein marketplace/);
   assert.match(html, /Shop cancer proteins/);
   assert.match(html, /blood cancer for human/);
   assert.match(html, /Add to Cart|Research Cart/);
-  assert.match(html, /Buy research packet/);
+  assert.match(html, /Copy research packet/);
   assert.match(html, /Europe PMC/);
-  assert.match(html, /LLM research synthesis/);
+  assert.match(html, /LLM protein summaries/);
   assert.match(html, /NCBI E-utilities/);
   assert.match(html, /UniProt/);
   assert.match(html, /iCn3D/);
@@ -64,10 +64,14 @@ test("wires the live research pipeline and cache", async () => {
   assert.match(page, /fetch\("\/api\/research"/);
   assert.match(page, /refresh = true/);
   assert.match(page, /cache:\s*"no-store"/);
-  assert.match(page, /Protazon/);
+  assert.match(page, /Pramazon/);
   assert.match(page, /Cancer proteins/);
-  assert.match(page, /Add to Cart/);
-  assert.match(page, /Buy research packet/);
+  assert.match(page, /Add to research cart/);
+  assert.match(page, /Copy research packet/);
+  assert.match(page, /proteinSummaryFor/);
+  assert.match(page, /What it does/);
+  assert.match(page, /Why useful/);
+  assert.match(page, /NIH \/ NCBI iCn3D model/);
   assert.match(page, /LLM terminology/);
   assert.match(page, /rules fallback/);
   assert.match(page, /LLM synthesis/);
@@ -75,10 +79,15 @@ test("wires the live research pipeline and cache", async () => {
   assert.match(page, /iCn3D live structure/);
   assert.match(page, /setSelectedAccession/);
   assert.match(page, /Sequence gated/);
+  assert.doesNotMatch(page, /proteinPrice/);
+  assert.doesNotMatch(page, /className="price"/);
   assert.match(route, /isCancerResearchQuery/);
-  assert.match(route, /Protazon is cancer-only/);
+  assert.match(route, /Pramazon is cancer-only/);
   assert.match(route, /LLM research planner/);
   assert.match(route, /LLM research synthesis/);
+  assert.match(route, /proteinSummaries/);
+  assert.match(route, /biologicalRole/);
+  assert.match(route, /cancerUsefulness/);
   assert.match(route, /OPENAI_API_KEY/);
   assert.match(route, /\/responses/);
   assert.match(route, /web_search/);

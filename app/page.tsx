@@ -3,6 +3,7 @@
 import { useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import type {
   ModelFit,
+  ProteinResearchSummary,
   ResearchResult,
   RoutedModel,
   SequenceCandidate,
@@ -15,7 +16,7 @@ const searchTargets = [
   "NCBI E-utilities",
   "UniProt proteins",
   "AlphaFold structures",
-  "LLM research synthesis",
+  "LLM protein summaries",
   "NVIDIA NIM route scaffolds",
 ];
 
@@ -122,13 +123,43 @@ function findStructureForSequence(sequence: SequenceCandidate, structures: Struc
   return structures.find((item) => item.accession === sequence.accession) ?? null;
 }
 
-function proteinPrice(index: number, item: SequenceCandidate) {
-  const basis = (item.length ?? item.accession.length * 97) + index * 43;
-  return (basis / 100).toFixed(2);
-}
-
 function ratingFor(index: number) {
   return (4.8 - Math.min(index, 5) * 0.1).toFixed(1);
+}
+
+function evidenceForSummary(
+  summary: ProteinResearchSummary,
+  result: ResearchResult,
+  index: number,
+) {
+  return (
+    result.evidence.find((item) => item.id === summary.evidenceId) ??
+    result.evidence[index % Math.max(result.evidence.length, 1)] ??
+    null
+  );
+}
+
+function proteinSummaryFor(
+  sequence: SequenceCandidate,
+  result: ResearchResult,
+  index: number,
+): ProteinResearchSummary {
+  const summary = result.synthesis.proteinSummaries.find(
+    (item) => item.accession === sequence.accession,
+  );
+  if (summary) return summary;
+
+  const evidence = result.evidence[index % Math.max(result.evidence.length, 1)];
+  const genes = sequence.genes.join(", ") || sequence.accession;
+  return {
+    accession: sequence.accession,
+    evidenceId: evidence?.id,
+    paper: evidence ? `${evidence.title} (${evidence.year})` : "No retrieved paper was linked yet.",
+    biologicalRole: `${sequence.label} is a public ${sequence.database} record for ${genes} in ${sequence.organism}.`,
+    cancerUsefulness: evidence
+      ? `The AI selected it as a cancer research lead because the retrieved evidence discusses ${result.normalized.condition} and this accession maps to ${genes}.`
+      : `The AI selected it as a public accession lead, but the evidence is sparse and needs review before use.`,
+  };
 }
 
 function StructureViewer({ structure }: { structure: StructureCandidate | null }) {
@@ -172,7 +203,7 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
-  const packet = result?.packet ?? "Run a cancer search to create a research checkout packet.";
+  const packet = result?.packet ?? "Run a cancer search to create a research packet.";
   const displayedModels = result?.modelRoutes ?? fallbackModels;
   const selectedStructure = useMemo(() => {
     if (!result) return null;
@@ -242,8 +273,8 @@ export default function Home() {
   return (
     <main className="app-shell">
       <header className="market-header">
-        <a className="brand" href="#top" aria-label="Protazon home">
-          <span>Protazon</span>
+        <a className="brand" href="#top" aria-label="Pramazon home">
+          <span>Pramazon</span>
           <i aria-hidden="true" />
         </a>
         <div className="delivery-copy">
@@ -251,7 +282,7 @@ export default function Home() {
           <strong>Cancer research bench</strong>
         </div>
         <form className="market-search" onSubmit={runResearch}>
-          <label htmlFor="research-query">Search Protazon cancer proteins</label>
+          <label htmlFor="research-query">Search Pramazon cancer proteins</label>
           <select aria-label="Search category" defaultValue="cancer">
             <option value="cancer">Cancer proteins</option>
           </select>
@@ -267,15 +298,15 @@ export default function Home() {
         </form>
         <div className="account-link">
           <small>Hello, researcher</small>
-          <strong>Lists & evidence</strong>
+          <strong>Lists & papers</strong>
         </div>
         <div className="account-link">
-          <small>Returns</small>
-          <strong>& orders</strong>
+          <small>Reviewed</small>
+          <strong>& structures</strong>
         </div>
         <a className="cart-link" href="#cart">
           <span>{cartAccessions.length}</span>
-          <strong>Cart</strong>
+          <strong>Research cart</strong>
         </a>
       </header>
 
@@ -283,7 +314,7 @@ export default function Home() {
         <a href="#products">All</a>
         <a href="#products">Cancer proteins</a>
         <a href="#viewer">3D structures</a>
-        <a href="#evidence-title">Evidence deals</a>
+        <a href="#evidence-title">Evidence papers</a>
         <a href="#model-title">Model routes</a>
         <a href="#cart">Research cart</a>
       </nav>
@@ -291,11 +322,11 @@ export default function Home() {
       <section className="hero-band" id="top" aria-labelledby="app-title">
         <div className="hero-copy">
           <p className="eyebrow">Cancer-only protein marketplace</p>
-          <h1 id="app-title">Protazon</h1>
+          <h1 id="app-title">Pramazon</h1>
           <p>
             Type a cancer problem. The AI searches live oncology literature and public protein
-            databases, then stocks the shelf with accession-backed protein candidates you can add
-            to a research cart.
+            databases, then stocks the shelf with accession-backed proteins, NIH/NCBI 3D
+            structure previews, source papers, and usefulness notes.
           </p>
           <div className="example-row" aria-label="Example cancer searches">
             {sampleQueries.map((sample) => (
@@ -356,7 +387,7 @@ export default function Home() {
               <p>
                 {result
                   ? `${result.sequences.length} protein candidates generated from live cancer research.`
-                  : "Run a search to generate accession-backed products for a cancer problem."}
+                  : "Run a search to generate accession-backed proteins for a cancer problem."}
               </p>
             </div>
             <span>{result?.cached ? "Cached order" : "Fresh order"}</span>
@@ -367,34 +398,52 @@ export default function Home() {
               {result.sequences.map((item, index) => {
                 const structure = findStructureForSequence(item, result.structures);
                 const inCart = cartAccessions.includes(item.accession);
+                const summary = proteinSummaryFor(item, result, index);
+                const evidence = evidenceForSummary(summary, result, index);
                 return (
                   <article className="product-card" key={`${item.database}-${item.accession}`}>
-                    <button
-                      type="button"
-                      className="product-image"
-                      onClick={() => structure && setSelectedAccession(structure.accession)}
-                      disabled={!structure}
-                      aria-label={`Preview ${item.accession} in iCn3D`}
-                    >
-                      <span>{item.genes[0] ?? item.accession.slice(0, 4)}</span>
-                    </button>
+                    <div className="product-structure">
+                      <button
+                        type="button"
+                        className="structure-select"
+                        onClick={() => structure && setSelectedAccession(structure.accession)}
+                        disabled={!structure}
+                      >
+                        {structure ? "NIH / NCBI iCn3D model" : "No public NIH structure found"}
+                      </button>
+                      <StructureViewer structure={structure} />
+                    </div>
                     <div className="product-info">
                       <a href={item.href}>
                         <h3>{item.label}</h3>
                       </a>
-                      <p className="rating">★★★★★ <span>{ratingFor(index)}</span></p>
-                      <p className="seller">Sold by {item.database} cancer reference shelf</p>
-                      <p className="price">
-                        <sup>$</sup>
-                        {proteinPrice(index, item)}
-                      </p>
-                      <p className="delivery">Fast public-source delivery to your research packet</p>
+                      <p className="rating">Evidence fit <span>{ratingFor(index)}</span></p>
+                      <p className="seller">Reference shelf: {item.database}</p>
+                      <p className="delivery">Public accession ready for research review</p>
                       <p className="meta-line">
                         {item.accession} · {item.organism} · {item.length ?? "n/a"} aa
                       </p>
+                      <div className="protein-explain">
+                        <section>
+                          <h4>What it does</h4>
+                          <p>{summary.biologicalRole}</p>
+                        </section>
+                        <section>
+                          <h4>Paper</h4>
+                          {evidence ? (
+                            <a href={evidence.href}>{summary.paper}</a>
+                          ) : (
+                            <p>{summary.paper}</p>
+                          )}
+                        </section>
+                        <section>
+                          <h4>Why useful</h4>
+                          <p>{summary.cancerUsefulness}</p>
+                        </section>
+                      </div>
                       <div className="product-actions">
                         <button type="button" onClick={() => addToCart(item)}>
-                          {inCart ? "Added to cart" : "Add to Cart"}
+                          {inCart ? "Added to research cart" : "Add to research cart"}
                         </button>
                         {structure ? (
                           <button type="button" onClick={() => setSelectedAccession(structure.accession)}>
@@ -446,7 +495,7 @@ export default function Home() {
             ))}
           </div>
           <button type="button" className="checkout-button" onClick={copyPacket} disabled={!result}>
-            {copied ? "Packet copied" : "Buy research packet"}
+            {copied ? "Packet copied" : "Copy research packet"}
           </button>
           <small>No checkout occurs. This cart only selects public cancer protein references.</small>
         </aside>
@@ -458,7 +507,7 @@ export default function Home() {
           <h2>{result?.normalized.condition ?? "Cancer search only"}</h2>
           <p>
             {result?.normalized.medical ??
-              "Protazon only searches cancer-related prompts and turns them into oncology terminology, target genes, source strategy, and reviewed protein candidates."}
+              "Pramazon only searches cancer-related prompts and turns them into oncology terminology, target genes, source strategy, reviewed protein candidates, and AI-written per-protein summaries."}
           </p>
           <div className="term-grid" aria-label="Search terms">
             {(result?.normalized.terms ?? searchTargets).map((term) => (
@@ -508,7 +557,7 @@ export default function Home() {
         <div className="molecule-panel">
           <div className="molecule-heading">
             <div>
-              <p className="section-kicker">Protein 3D simulation</p>
+              <p className="section-kicker">Selected NIH / NCBI structure</p>
               <h2>{selectedStructure ? selectedStructure.label : "iCn3D structure view"}</h2>
             </div>
             {selectedStructure ? (
@@ -536,8 +585,8 @@ export default function Home() {
           </div>
           <p className="viewer-note">
             {selectedStructure
-              ? `${selectedStructure.source} returned ${selectedStructure.accession}. iCn3D loads the public PDB/CIF file for the selected cancer protein.`
-              : "When AlphaFold or PDB structure files are found, selecting a product loads the NCBI iCn3D viewer."}
+              ? `${selectedStructure.source} returned ${selectedStructure.accession}. NIH/NCBI iCn3D loads the public PDB/CIF file for the selected cancer protein.`
+              : "When AlphaFold or PDB structure files are found, each protein card and the selected viewer load the NIH/NCBI iCn3D structure."}
           </p>
         </div>
 
@@ -556,7 +605,7 @@ export default function Home() {
       <section className="evidence-band" aria-labelledby="evidence-title">
         <div className="section-heading">
           <div>
-            <p className="section-kicker">Customer research reviews</p>
+            <p className="section-kicker">Research paper reviews</p>
             <h2 id="evidence-title">Ranked oncology sources</h2>
           </div>
           <span className="section-count">{result?.evidence.length ?? 0} hits</span>
@@ -585,7 +634,7 @@ export default function Home() {
         <div className="section-heading">
           <div>
             <p className="section-kicker">NVIDIA model route</p>
-            <h2 id="model-title">Frequently bought with this target</h2>
+            <h2 id="model-title">Frequently modeled with this target</h2>
           </div>
           <span className="section-count">{displayedModels.length} routes</span>
         </div>

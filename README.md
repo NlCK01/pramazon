@@ -1,18 +1,19 @@
-# Protazon
+# Pramazon
 
-Protazon is a cancer-only protein research marketplace for a healthcare
+Pramazon is a cancer-only protein research marketplace for a healthcare
 hackathon workflow. A user enters an oncology goal, such as "skin cancer for my
 dog", "prostate cancer for hamster", or "blood cancer for human", and the app
-turns it into accession-backed protein product cards and a reviewed research
-packet.
+turns it into accession-backed protein cards with NIH/NCBI iCn3D structure
+previews, AI-written protein explanations, and a reviewed research packet.
 
 The implementation is intentionally nonclinical. It rejects non-cancer prompts,
 translates cancer requests into oncology terminology, searches trusted
 biomedical sources, retrieves public accession and structure candidates, routes
 the task across NVIDIA BioNeMo/NIM model families, shows an NCBI iCn3D protein
-structure simulation when a public PDB/CIF file is found, and produces a
-copyable packet while withholding unvalidated therapeutic sequence output. The
-cart is a research-selection metaphor; no real product purchase occurs.
+structure simulation beside each protein when a public PDB/CIF file is found,
+and produces a copyable packet while withholding unvalidated therapeutic
+sequence output. The cart is a research-selection metaphor; no real product
+purchase occurs.
 
 ## Live Pipeline
 
@@ -29,8 +30,9 @@ cart is a research-selection metaphor; no real product purchase occurs.
 5. Check AlphaFold DB for public PDB/CIF structure files that can be opened in
    NCBI iCn3D.
 6. Ask the LLM to synthesize the retrieved evidence, accession choices, and
-   model route into the research packet. Hosted OpenAI web search is attempted
-   when available.
+   model route into the research packet, including per-protein notes for source
+   paper, biological role, and cancer usefulness. Hosted OpenAI web search is
+   attempted when available.
 7. Route the request to the most relevant NVIDIA model family.
 8. Cache the completed research packet in D1 for explicit cache reuse.
 
@@ -88,8 +90,9 @@ npm test
 ## Project Notes
 
 - App code lives under `app/`.
-- The UI uses a marketplace-style cancer protein search, product cards, and a
-  research cart, with NCBI iCn3D for selectable protein structure simulation.
+- The UI uses a marketplace-style cancer protein search, research cards, and a
+  research cart, with NCBI iCn3D embedded beside each protein when a public
+  structure is found.
 - `.openai/hosting.json` declares the Sites D1 binding used for research-run
   caching.
 - `db/schema.ts` defines the `research_runs` cache table.

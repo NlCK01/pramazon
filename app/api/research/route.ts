@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 const CACHE_TTL_MS = 1000 * 60 * 60 * 12;
 const REQUEST_TIMEOUT_MS = 9000;
-const APP_EMAIL = "helix-triage@example.com";
+const APP_EMAIL = "pramazon@example.com";
 const DEFAULT_OPENAI_MODEL = "gpt-5-mini";
 const CANCER_ONLY_PATTERN =
   /\b(cancer|oncology|tumou?r|neoplasm|carcinoma|sarcoma|melanoma|leukemia|leukaemia|lymphoma|myeloma|glioma|glioblastoma|blastoma|adenocarcinoma|aml|all|cll|cml|metastatic|metastasis)\b/i;
@@ -59,6 +59,13 @@ type LlmResearchSynthesis = {
   research: string;
   sequenceRationale: string;
   modelPlan: string;
+  proteinSummaries: Array<{
+    accession: string;
+    evidenceId?: string;
+    paper: string;
+    biologicalRole: string;
+    cancerUsefulness: string;
+  }>;
   caveats: string[];
   evidenceOrder: string[];
   accessionOrder: string[];
@@ -668,7 +675,7 @@ function makeSafetyAssessment(normalized: NormalizedRequest): SafetyAssessment {
 }
 
 function buildLlmPrompt(query: string, fallback: NormalizedRequest) {
-  return `Act as the cancer protein research planner for Protazon. Convert the user's plain-language cancer request into precise oncology terminology, source-searchable cancer genes/proteins, and live retrieval queries.
+  return `Act as the cancer protein research planner for Pramazon. Convert the user's plain-language cancer request into precise oncology terminology, source-searchable cancer genes/proteins, and live retrieval queries.
 
 User request:
 ${query}
@@ -1468,6 +1475,21 @@ function makeDeterministicSynthesis(base: ResearchBase): ResearchSynthesis {
   const topEvidence = base.evidence[0];
   const topSequence = base.sequences[0];
   const topModel = base.modelRoutes.find((route) => route.fit === "Primary") ?? base.modelRoutes[0];
+  const proteinSummaries = base.sequences.slice(0, 10).map((sequence, index) => {
+    const evidence = base.evidence[index % Math.max(base.evidence.length, 1)];
+    const genes = sequence.genes.join(", ") || sequence.accession;
+    return {
+      accession: sequence.accession,
+      evidenceId: evidence?.id,
+      paper: evidence
+        ? `${evidence.title} (${evidence.year})`
+        : "No retrieved paper was strongly linked to this accession.",
+      biologicalRole: `${sequence.label} is a ${sequence.database} reference record for ${genes} in ${sequence.organism}.`,
+      cancerUsefulness: evidence
+        ? `The retrieved evidence discusses ${base.normalized.condition}; use ${sequence.accession} as a public reference for reviewing whether ${genes} is relevant to that cancer context.`
+        : `Use ${sequence.accession} only as a public accession lead until stronger cancer-specific evidence is found.`,
+    };
+  });
 
   return {
     source: "deterministic",
@@ -1481,6 +1503,7 @@ function makeDeterministicSynthesis(base: ResearchBase): ResearchSynthesis {
     modelPlan: topModel
       ? `${topModel.name} is the leading model route because ${topModel.note}`
       : "No model route was selected.",
+    proteinSummaries,
     caveats: [
       "The fallback synthesis is not an LLM interpretation.",
       "Species-specific evidence may be sparse for unusual organism and condition combinations.",
@@ -1549,6 +1572,8 @@ Requirements:
 - Use the retrieved records as the grounding source. Do not invent paper titles, accessions, structures, citations, or URLs.
 - Keep the synthesis strictly limited to cancer biology, oncology, tumor biomarkers, hematologic malignancy, or cancer protein target research.
 - You may use web search only to add high-level context or very recent confirmation, but keep source-specific claims tied to retrieved records when possible.
+- For every reference accession, return one proteinSummaries item that explains the supporting paper, what the protein does biologically, and why it is useful for this cancer research query.
+- The proteinSummaries.paper field must use a retrieved evidence title/year when one exists; do not invent a paper.
 - If the evidence is sparse, indirect, or not species-specific, state that clearly.
 - Never output nucleotide, amino-acid, guide-RNA, viral-vector, plasmid, protocol, dosage, or clinical treatment instructions.
 - Keep the condition specific. Do not summarize this as "malignant neoplasm" when a clearer term exists.
@@ -1571,12 +1596,51 @@ function mergeLlmSynthesis(
     research: textField("research"),
     sequenceRationale: textField("sequenceRationale"),
     modelPlan: textField("modelPlan"),
+    proteinSummaries: cleanProteinSummaries(value.proteinSummaries, fallback.proteinSummaries),
     caveats: cleanArray(value.caveats, fallback.caveats, 6),
     evidenceOrder: cleanArray(value.evidenceOrder, fallback.evidenceOrder, 12),
     accessionOrder: cleanArray(value.accessionOrder, fallback.accessionOrder, 12),
     webFindings: cleanArray(value.webFindings, [], 5),
     llmModel: model,
   };
+}
+
+function cleanProteinSummaries(
+  value: unknown,
+  fallback: ResearchSynthesis["proteinSummaries"],
+): ResearchSynthesis["proteinSummaries"] {
+  const raw = Array.isArray(value) ? value : [];
+  const cleaned = raw
+    .map((item) => {
+      if (typeof item !== "object" || item === null) return null;
+      const record = item as Record<string, unknown>;
+      const accession = typeof record.accession === "string" ? record.accession.trim() : "";
+      const paper = typeof record.paper === "string" ? record.paper.replace(/\s+/g, " ").trim() : "";
+      const biologicalRole =
+        typeof record.biologicalRole === "string"
+          ? record.biologicalRole.replace(/\s+/g, " ").trim()
+          : "";
+      const cancerUsefulness =
+        typeof record.cancerUsefulness === "string"
+          ? record.cancerUsefulness.replace(/\s+/g, " ").trim()
+          : "";
+      if (!accession || !paper || !biologicalRole || !cancerUsefulness) return null;
+      const evidenceId =
+        typeof record.evidenceId === "string" && record.evidenceId.trim()
+          ? record.evidenceId.trim()
+          : undefined;
+      const summary: ResearchSynthesis["proteinSummaries"][number] = {
+        accession,
+        paper,
+        biologicalRole,
+        cancerUsefulness,
+      };
+      if (evidenceId) summary.evidenceId = evidenceId;
+      return summary;
+    })
+    .filter((item): item is ResearchSynthesis["proteinSummaries"][number] => item !== null);
+
+  return cleaned.length ? cleaned.slice(0, 12) : fallback;
 }
 
 function shouldUseHostedWebSearch(env: RuntimeEnv, baseUrl: string) {
@@ -1593,6 +1657,7 @@ function synthesisSchema() {
       "research",
       "sequenceRationale",
       "modelPlan",
+      "proteinSummaries",
       "caveats",
       "evidenceOrder",
       "accessionOrder",
@@ -1603,6 +1668,27 @@ function synthesisSchema() {
       research: { type: "string" },
       sequenceRationale: { type: "string" },
       modelPlan: { type: "string" },
+      proteinSummaries: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "accession",
+            "evidenceId",
+            "paper",
+            "biologicalRole",
+            "cancerUsefulness",
+          ],
+          properties: {
+            accession: { type: "string" },
+            evidenceId: { type: "string" },
+            paper: { type: "string" },
+            biologicalRole: { type: "string" },
+            cancerUsefulness: { type: "string" },
+          },
+        },
+      },
       caveats: {
         type: "array",
         items: { type: "string" },
@@ -1799,6 +1885,14 @@ function buildPacket(result: Omit<ResearchResult, "packet">) {
       .slice(0, 4)
       .map((item) => `- ${item.source}: ${item.accession} | ${item.href}`)
       .join("\n") || "- No public structure file found yet.";
+  const proteinSummaries =
+    result.synthesis.proteinSummaries
+      .slice(0, 8)
+      .map(
+        (item) =>
+          `- ${item.accession}\n  Paper: ${item.paper}\n  What it does: ${item.biologicalRole}\n  Why useful: ${item.cancerUsefulness}`,
+      )
+      .join("\n") || "- No per-protein explanation was generated.";
 
   const models = result.modelRoutes
     .map((item) => `- ${item.name}: ${item.fit} - ${item.role}`)
@@ -1831,6 +1925,9 @@ Problem: ${result.synthesis.problem}
 Research: ${result.synthesis.research}
 Reference/accession rationale: ${result.synthesis.sequenceRationale}
 Model plan: ${result.synthesis.modelPlan}
+
+Per-protein research notes:
+${proteinSummaries}
 
 Medical terminology:
 ${result.normalized.medical}
@@ -1998,7 +2095,7 @@ export async function POST(request: Request) {
       return jsonResponse(
         {
           error:
-            "Protazon is cancer-only. Enter an oncology, tumor, leukemia, lymphoma, melanoma, carcinoma, sarcoma, myeloma, or cancer biomarker request.",
+            "Pramazon is cancer-only. Enter an oncology, tumor, leukemia, lymphoma, melanoma, carcinoma, sarcoma, myeloma, or cancer biomarker request.",
         },
         400,
       );

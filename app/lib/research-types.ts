@@ -86,11 +86,20 @@ export type ResearchSynthesis = {
   research: string;
   sequenceRationale: string;
   modelPlan: string;
+  proteinSummaries: ProteinResearchSummary[];
   caveats: string[];
   evidenceOrder: string[];
   accessionOrder: string[];
   webFindings?: string[];
   llmModel?: string;
+};
+
+export type ProteinResearchSummary = {
+  accession: string;
+  evidenceId?: string;
+  paper: string;
+  biologicalRole: string;
+  cancerUsefulness: string;
 };
 
 export type ResearchResult = {

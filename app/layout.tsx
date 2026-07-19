@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Protazon",
+  title: "Pramazon",
   description:
-    "A cancer-only protein research marketplace for evidence retrieval, iCn3D structure preview, and gated sequence review.",
+    "A cancer-only protein research marketplace for AI protein summaries, NIH iCn3D structure preview, and gated sequence review.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
