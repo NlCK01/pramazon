@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Helix Triage",
+  title: "Protazon",
   description:
-    "A veterinary genomics research console for evidence retrieval, NVIDIA BioNeMo model routing, and gated sequence review.",
+    "A cancer-only protein research marketplace for evidence retrieval, iCn3D structure preview, and gated sequence review.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

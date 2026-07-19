@@ -10,20 +10,20 @@ import type {
 } from "./lib/research-types";
 
 const searchTargets = [
-  "LLM research planner",
-  "Europe PMC",
+  "LLM cancer planner",
+  "Europe PMC oncology scan",
   "NCBI E-utilities",
-  "UniProt",
-  "AlphaFold DB",
+  "UniProt proteins",
+  "AlphaFold structures",
   "LLM research synthesis",
   "NVIDIA NIM route scaffolds",
 ];
 
 const sampleQueries = [
-  "cure to skin cancer for my dog",
-  "cure to prostate cancer for hamster",
-  "cure to blood cancer for human",
-  "diagnostic marker for breast cancer in cats",
+  "blood cancer for human",
+  "skin cancer for my dog",
+  "prostate cancer for hamster",
+  "breast cancer biomarker in cats",
 ];
 
 const fallbackModels: RoutedModel[] = [
@@ -31,7 +31,7 @@ const fallbackModels: RoutedModel[] = [
     name: "OpenFold3",
     role: "3D biomolecular complex prediction",
     fit: "Primary",
-    note: "Runs after the backend finds an accession or public structure candidate.",
+    note: "Runs after a public cancer protein accession or structure candidate is selected.",
   },
   {
     name: "Evo 2",
@@ -49,7 +49,30 @@ const fallbackModels: RoutedModel[] = [
     name: "MolMIM + DiffDock",
     role: "Small-molecule generation and docking",
     fit: "Deferred",
-    note: "Used when the prompt is better framed as drug-like molecule search.",
+    note: "Used when the cancer prompt is better framed as drug-like molecule exploration.",
+  },
+];
+
+const featuredProteins = [
+  {
+    accession: "P00533",
+    label: "EGFR cancer signaling shelf",
+    detail: "Lung and colorectal cancer target discovery",
+  },
+  {
+    accession: "P04637",
+    label: "TP53 tumor suppressor aisle",
+    detail: "Cross-cancer mutation and pathway evidence",
+  },
+  {
+    accession: "P15056",
+    label: "BRAF melanoma research lane",
+    detail: "MAPK pathway and kinase structure review",
+  },
+  {
+    accession: "P36888",
+    label: "FLT3 leukemia target bay",
+    detail: "Hematologic malignancy accession scouting",
   },
 ];
 
@@ -99,6 +122,15 @@ function findStructureForSequence(sequence: SequenceCandidate, structures: Struc
   return structures.find((item) => item.accession === sequence.accession) ?? null;
 }
 
+function proteinPrice(index: number, item: SequenceCandidate) {
+  const basis = (item.length ?? item.accession.length * 97) + index * 43;
+  return (basis / 100).toFixed(2);
+}
+
+function ratingFor(index: number) {
+  return (4.8 - Math.min(index, 5) * 0.1).toFixed(1);
+}
+
 function StructureViewer({ structure }: { structure: StructureCandidate | null }) {
   const viewerUrl = useMemo(() => icn3dUrl(structure), [structure]);
 
@@ -126,20 +158,21 @@ function StructureViewer({ structure }: { structure: StructureCandidate | null }
           </div>
         </div>
       )}
-      <span className="viewer-state">{viewerUrl ? "iCn3D live simulation" : "Structure preview"}</span>
+      <span className="viewer-state">{viewerUrl ? "iCn3D live structure" : "Structure preview"}</span>
     </div>
   );
 }
 
 export default function Home() {
-  const [query, setQuery] = useState("cure to prostate cancer for hamster");
+  const [query, setQuery] = useState("blood cancer for human");
   const [result, setResult] = useState<ResearchResult | null>(null);
   const [selectedAccession, setSelectedAccession] = useState("");
+  const [cartAccessions, setCartAccessions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
-  const packet = result?.packet ?? "Run a live research query to generate a copyable packet.";
+  const packet = result?.packet ?? "Run a cancer search to create a research checkout packet.";
   const displayedModels = result?.modelRoutes ?? fallbackModels;
   const selectedStructure = useMemo(() => {
     if (!result) return null;
@@ -148,9 +181,9 @@ export default function Home() {
       firstStructure(result)
     );
   }, [result, selectedAccession]);
-  const structuredAccessions = useMemo(
-    () => new Set(result?.structures.map((item) => item.accession) ?? []),
-    [result],
+  const cartItems = useMemo(
+    () => result?.sequences.filter((item) => cartAccessions.includes(item.accession)) ?? [],
+    [cartAccessions, result],
   );
 
   async function runResearch(event?: FormEvent<HTMLFormElement>, refresh = true) {
@@ -174,17 +207,26 @@ export default function Home() {
           "error" in payload &&
           typeof payload.error === "string"
             ? payload.error
-            : "Research failed";
+            : "Cancer protein search failed";
         throw new Error(message);
       }
-      if (!isResearchResult(payload)) throw new Error("Research response was incomplete.");
+      if (!isResearchResult(payload)) throw new Error("Cancer protein search response was incomplete.");
       setResult(payload);
+      setCartAccessions([]);
       setSelectedAccession(payload.structures[0]?.accession ?? "");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Research failed");
+      setError(caught instanceof Error ? caught.message : "Cancer protein search failed");
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function addToCart(item: SequenceCandidate) {
+    setCartAccessions((current) =>
+      current.includes(item.accession) ? current : [...current, item.accession],
+    );
+    const structure = findStructureForSequence(item, result?.structures ?? []);
+    if (structure) setSelectedAccession(structure.accession);
   }
 
   async function copyPacket() {
@@ -199,89 +241,224 @@ export default function Home() {
 
   return (
     <main className="app-shell">
-      <aside className="gemini-rail" aria-label="App navigation">
-        <div className="spark-mark" aria-hidden="true" />
-        <nav>
-          <a href="#research-query" aria-label="Prompt">
-            +
-          </a>
-          <a href="#evidence-title" aria-label="Evidence">
-            S
-          </a>
-          <a href="#sequence-title" aria-label="Targets">
-            T
-          </a>
-          <a href="#model-title" aria-label="Models">
-            M
-          </a>
-        </nav>
-        <div className="rail-bottom">
-          <a href="#architecture-title" aria-label="Provider status">
-            i
-          </a>
+      <header className="market-header">
+        <a className="brand" href="#top" aria-label="Protazon home">
+          <span>Protazon</span>
+          <i aria-hidden="true" />
+        </a>
+        <div className="delivery-copy">
+          <small>Deliver to</small>
+          <strong>Cancer research bench</strong>
         </div>
-      </aside>
+        <form className="market-search" onSubmit={runResearch}>
+          <label htmlFor="research-query">Search Protazon cancer proteins</label>
+          <select aria-label="Search category" defaultValue="cancer">
+            <option value="cancer">Cancer proteins</option>
+          </select>
+          <input
+            id="research-query"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search cancer problem, species, target, or pathway"
+          />
+          <button type="submit" disabled={isLoading} aria-label="Search cancer proteins">
+            {isLoading ? "..." : "Search"}
+          </button>
+        </form>
+        <div className="account-link">
+          <small>Hello, researcher</small>
+          <strong>Lists & evidence</strong>
+        </div>
+        <div className="account-link">
+          <small>Returns</small>
+          <strong>& orders</strong>
+        </div>
+        <a className="cart-link" href="#cart">
+          <span>{cartAccessions.length}</span>
+          <strong>Cart</strong>
+        </a>
+      </header>
 
-      <div className="top-actions" aria-label="Workspace actions">
-        <span>{result?.normalized.terminologySource === "llm" ? "LLM active" : "LLM pending"}</span>
-        <button type="button" onClick={copyPacket} disabled={!result}>
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
+      <nav className="market-nav" aria-label="Cancer protein departments">
+        <a href="#products">All</a>
+        <a href="#products">Cancer proteins</a>
+        <a href="#viewer">3D structures</a>
+        <a href="#evidence-title">Evidence deals</a>
+        <a href="#model-title">Model routes</a>
+        <a href="#cart">Research cart</a>
+      </nav>
 
-      <section className="hero-band" aria-labelledby="app-title">
+      <section className="hero-band" id="top" aria-labelledby="app-title">
         <div className="hero-copy">
-          <p className="eyebrow">Live veterinary genomics research console</p>
-          <h1 id="app-title">What should we focus on?</h1>
-          <form className="prompt-panel" onSubmit={runResearch}>
-            <label htmlFor="research-query">Ask Helix</label>
-            <div className="prompt-input-shell">
-              <span aria-hidden="true">+</span>
-              <textarea
-                id="research-query"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                rows={2}
-                placeholder="Ask for a disease, species, target, or research goal"
-              />
-              <strong>Research</strong>
-            </div>
-            <div className="prompt-actions">
-              <button type="submit" className="primary-action" disabled={isLoading}>
-                {isLoading ? "Running research" : "Run new research"}
-              </button>
+          <p className="eyebrow">Cancer-only protein marketplace</p>
+          <h1 id="app-title">Protazon</h1>
+          <p>
+            Type a cancer problem. The AI searches live oncology literature and public protein
+            databases, then stocks the shelf with accession-backed protein candidates you can add
+            to a research cart.
+          </p>
+          <div className="example-row" aria-label="Example cancer searches">
+            {sampleQueries.map((sample) => (
               <button
                 type="button"
-                disabled={isLoading || !result}
-                onClick={() => void runResearch(undefined, false)}
+                className="chip-button"
+                key={sample}
+                onClick={() => setQuery(sample)}
               >
-                Use cached packet
+                {sample}
               </button>
-            </div>
-            <div className="example-row" aria-label="Example prompts">
-              {sampleQueries.map((sample) => (
-                <button
-                  type="button"
-                  className="chip-button"
-                  key={sample}
-                  onClick={() => setQuery(sample)}
-                >
-                  {sample}
-                </button>
-              ))}
-            </div>
-            {error ? <p className="error-text">{error}</p> : null}
-          </form>
+            ))}
+          </div>
+          {error ? <p className="error-text">{error}</p> : null}
+        </div>
+        <div className="hero-card">
+          <strong>Today&apos;s oncology delivery</strong>
+          <span>Live papers</span>
+          <span>Reviewed accessions</span>
+          <span>iCn3D structures</span>
+          <button type="button" onClick={() => void runResearch(undefined, true)} disabled={isLoading}>
+            {isLoading ? "Stocking shelves" : "Shop cancer proteins"}
+          </button>
         </div>
       </section>
 
-      <section className="workbench" aria-label="Research generator">
+      <section className="shopping-layout" id="products" aria-label="Protein shopping results">
+        <aside className="filter-panel">
+          <h2>Filters</h2>
+          <label>
+            <input type="checkbox" checked readOnly />
+            Cancer only
+          </label>
+          <label>
+            <input type="checkbox" checked readOnly />
+            Public accession
+          </label>
+          <label>
+            <input type="checkbox" checked readOnly />
+            Sequence-gated
+          </label>
+          <div>
+            <strong>Departments</strong>
+            <a href="#products">Oncology proteins</a>
+            <a href="#viewer">3D structure files</a>
+            <a href="#evidence-title">Literature evidence</a>
+          </div>
+        </aside>
+
+        <div className="product-results">
+          <div className="results-toolbar">
+            <div>
+              <h2>
+                {result
+                  ? `Results for ${result.normalized.condition}`
+                  : "Featured cancer protein shelves"}
+              </h2>
+              <p>
+                {result
+                  ? `${result.sequences.length} protein candidates generated from live cancer research.`
+                  : "Run a search to generate accession-backed products for a cancer problem."}
+              </p>
+            </div>
+            <span>{result?.cached ? "Cached order" : "Fresh order"}</span>
+          </div>
+
+          {result?.sequences.length ? (
+            <div className="product-list">
+              {result.sequences.map((item, index) => {
+                const structure = findStructureForSequence(item, result.structures);
+                const inCart = cartAccessions.includes(item.accession);
+                return (
+                  <article className="product-card" key={`${item.database}-${item.accession}`}>
+                    <button
+                      type="button"
+                      className="product-image"
+                      onClick={() => structure && setSelectedAccession(structure.accession)}
+                      disabled={!structure}
+                      aria-label={`Preview ${item.accession} in iCn3D`}
+                    >
+                      <span>{item.genes[0] ?? item.accession.slice(0, 4)}</span>
+                    </button>
+                    <div className="product-info">
+                      <a href={item.href}>
+                        <h3>{item.label}</h3>
+                      </a>
+                      <p className="rating">★★★★★ <span>{ratingFor(index)}</span></p>
+                      <p className="seller">Sold by {item.database} cancer reference shelf</p>
+                      <p className="price">
+                        <sup>$</sup>
+                        {proteinPrice(index, item)}
+                      </p>
+                      <p className="delivery">Fast public-source delivery to your research packet</p>
+                      <p className="meta-line">
+                        {item.accession} · {item.organism} · {item.length ?? "n/a"} aa
+                      </p>
+                      <div className="product-actions">
+                        <button type="button" onClick={() => addToCart(item)}>
+                          {inCart ? "Added to cart" : "Add to Cart"}
+                        </button>
+                        {structure ? (
+                          <button type="button" onClick={() => setSelectedAccession(structure.accession)}>
+                            View 3D
+                          </button>
+                        ) : (
+                          <span>No structure file</span>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="featured-grid">
+              {featuredProteins.map((item) => (
+                <article className="featured-card" key={item.accession}>
+                  <div className="product-image">
+                    <span>{item.accession.slice(0, 4)}</span>
+                  </div>
+                  <h3>{item.label}</h3>
+                  <p>{item.detail}</p>
+                  <button type="button" onClick={() => setQuery(`${item.label} cancer`)}>
+                    Search this shelf
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <aside className="cart-panel" id="cart">
+          <h2>Research Cart</h2>
+          <p>{cartItems.length ? `${cartItems.length} cancer proteins selected` : "Your cart is empty."}</p>
+          <div className="cart-items">
+            {cartItems.map((item) => (
+              <button
+                type="button"
+                key={item.accession}
+                onClick={() => {
+                  const structure = findStructureForSequence(item, result?.structures ?? []);
+                  if (structure) setSelectedAccession(structure.accession);
+                }}
+              >
+                <strong>{item.accession}</strong>
+                <span>{item.genes.join(", ") || item.label}</span>
+              </button>
+            ))}
+          </div>
+          <button type="button" className="checkout-button" onClick={copyPacket} disabled={!result}>
+            {copied ? "Packet copied" : "Buy research packet"}
+          </button>
+          <small>No checkout occurs. This cart only selects public cancer protein references.</small>
+        </aside>
+      </section>
+
+      <section className="workbench" aria-label="Cancer research summary">
         <div className="translation-panel">
-          <p className="section-kicker">Medical terminology</p>
-          <h2>{result?.normalized.condition ?? "Run a query"}</h2>
+          <p className="section-kicker">AI cancer terminology</p>
+          <h2>{result?.normalized.condition ?? "Cancer search only"}</h2>
           <p>
             {result?.normalized.medical ??
-              "The backend will ask the LLM for species, condition, intent, search terms, target genes, source strategy, and whether the request needs clarification."}
+              "Protazon only searches cancer-related prompts and turns them into oncology terminology, target genes, source strategy, and reviewed protein candidates."}
           </p>
           <div className="term-grid" aria-label="Search terms">
             {(result?.normalized.terms ?? searchTargets).map((term) => (
@@ -302,8 +479,8 @@ export default function Home() {
         </div>
 
         <div className="architecture-card">
-          <p className="section-kicker">Run state</p>
-          <h2>{result?.cached ? "Cached packet" : "Fresh retrieval"}</h2>
+          <p className="section-kicker">Order state</p>
+          <h2>{result?.cached ? "Cached protein order" : "Fresh cancer retrieval"}</h2>
           <div className="confidence-row">
             {result ? (
               <>
@@ -314,12 +491,12 @@ export default function Home() {
                     ? `LLM terminology${result.normalized.llmModel ? `: ${result.normalized.llmModel}` : ""}`
                     : "rules fallback"}
                 </span>
-                <span>{result.evidence.length} evidence hits</span>
+                <span>{result.evidence.length} cancer evidence hits</span>
               </>
             ) : (
               <>
-                <span>Planner ready</span>
-                <span>Sources ready</span>
+                <span>Cancer gate ready</span>
+                <span>Protein shelves ready</span>
                 <span>iCn3D ready</span>
               </>
             )}
@@ -327,7 +504,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="output-band" aria-label="3D preview and generated packet">
+      <section className="output-band" id="viewer" aria-label="3D preview and generated packet">
         <div className="molecule-panel">
           <div className="molecule-heading">
             <div>
@@ -354,13 +531,13 @@ export default function Home() {
                 </button>
               ))
             ) : (
-              <span>Run research to load iCn3D-ready structures.</span>
+              <span>Run a cancer search to load iCn3D-ready proteins.</span>
             )}
           </div>
           <p className="viewer-note">
             {selectedStructure
-              ? `${selectedStructure.source} returned ${selectedStructure.accession}. iCn3D loads the public PDB/CIF file for the selected target.`
-              : "When AlphaFold or PDB structure files are found, selecting a target loads the NCBI iCn3D viewer."}
+              ? `${selectedStructure.source} returned ${selectedStructure.accession}. iCn3D loads the public PDB/CIF file for the selected cancer protein.`
+              : "When AlphaFold or PDB structure files are found, selecting a product loads the NCBI iCn3D viewer."}
           </p>
         </div>
 
@@ -376,62 +553,11 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="sequence-band" aria-labelledby="sequence-title">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Reference sequences</p>
-            <h2 id="sequence-title">Selectable targets</h2>
-          </div>
-          <span className="gate-pill">{result?.safety.label ?? "Reference-only"}</span>
-        </div>
-        <div className="sequence-table" role="table" aria-label="Accession candidates">
-          <div className="sequence-row sequence-head" role="row">
-            <span>Database</span>
-            <span>Accession</span>
-            <span>Record</span>
-            <span>Action</span>
-          </div>
-          {result?.sequences.length ? (
-            result.sequences.map((item) => {
-              const structure = findStructureForSequence(item, result.structures);
-              const canSimulate = structuredAccessions.has(item.accession);
-              return (
-                <div
-                  className={`sequence-row ${item.accession === selectedStructure?.accession ? "sequence-active" : ""}`}
-                  role="row"
-                  key={`${item.database}-${item.accession}`}
-                >
-                  <span>{item.database}</span>
-                  <strong>{item.accession}</strong>
-                  <span>{item.label}</span>
-                  <span className="sequence-actions">
-                    {canSimulate && structure ? (
-                      <button type="button" onClick={() => setSelectedAccession(item.accession)}>
-                        Simulate
-                      </button>
-                    ) : (
-                      <em>Source only</em>
-                    )}
-                    <a href={item.href}>Open</a>
-                  </span>
-                </div>
-              );
-            })
-          ) : (
-            <div className="empty-panel">
-              The app returns accession-linked references when UniProt or NCBI
-              finds matching records. Raw therapeutic sequence output remains
-              gated.
-            </div>
-          )}
-        </div>
-      </section>
-
       <section className="evidence-band" aria-labelledby="evidence-title">
         <div className="section-heading">
           <div>
-            <p className="section-kicker">Live evidence scan</p>
-            <h2 id="evidence-title">Ranked sources</h2>
+            <p className="section-kicker">Customer research reviews</p>
+            <h2 id="evidence-title">Ranked oncology sources</h2>
           </div>
           <span className="section-count">{result?.evidence.length ?? 0} hits</span>
         </div>
@@ -449,7 +575,7 @@ export default function Home() {
             ))
           ) : (
             <div className="empty-panel">
-              Live literature results will appear here after the first query.
+              Cancer literature results will appear here after the first search.
             </div>
           )}
         </div>
@@ -459,7 +585,7 @@ export default function Home() {
         <div className="section-heading">
           <div>
             <p className="section-kicker">NVIDIA model route</p>
-            <h2 id="model-title">Most applicable model path</h2>
+            <h2 id="model-title">Frequently bought with this target</h2>
           </div>
           <span className="section-count">{displayedModels.length} routes</span>
         </div>
@@ -478,14 +604,14 @@ export default function Home() {
 
       <section className="architecture-band" aria-labelledby="architecture-title">
         <div>
-          <p className="section-kicker">Provider status</p>
-          <h2 id="architecture-title">What ran</h2>
+          <p className="section-kicker">Fulfillment status</p>
+          <h2 id="architecture-title">What stocked the shelf</h2>
         </div>
         <ol className="architecture-list provider-list">
           {(result?.providerStatus ?? searchTargets.map((provider) => ({
             provider,
             state: "ok" as const,
-            detail: "Ready for live retrieval.",
+            detail: "Ready for cancer protein retrieval.",
           }))).map((item) => (
             <li key={item.provider} data-state={item.state}>
               <strong>{item.provider}</strong>

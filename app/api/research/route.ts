@@ -18,6 +18,8 @@ const CACHE_TTL_MS = 1000 * 60 * 60 * 12;
 const REQUEST_TIMEOUT_MS = 9000;
 const APP_EMAIL = "helix-triage@example.com";
 const DEFAULT_OPENAI_MODEL = "gpt-5-mini";
+const CANCER_ONLY_PATTERN =
+  /\b(cancer|oncology|tumou?r|neoplasm|carcinoma|sarcoma|melanoma|leukemia|leukaemia|lymphoma|myeloma|glioma|glioblastoma|blastoma|adenocarcinoma|aml|all|cll|cml|metastatic|metastasis)\b/i;
 
 type ResearchCacheRow = {
   result_json: string;
@@ -419,6 +421,10 @@ function normalizeText(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function isCancerResearchQuery(value: string) {
+  return CANCER_ONLY_PATTERN.test(value);
+}
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -662,7 +668,7 @@ function makeSafetyAssessment(normalized: NormalizedRequest): SafetyAssessment {
 }
 
 function buildLlmPrompt(query: string, fallback: NormalizedRequest) {
-  return `Act as the biomedical research planner for this app. Convert the user's plain-language request into precise medical terminology, source-searchable genes, and live retrieval queries.
+  return `Act as the cancer protein research planner for Protazon. Convert the user's plain-language cancer request into precise oncology terminology, source-searchable cancer genes/proteins, and live retrieval queries.
 
 User request:
 ${query}
@@ -675,11 +681,12 @@ target_genes=${fallback.targetGenes.join(", ")}
 
 Rules:
 - Return only JSON matching the schema.
+- Stay strictly within cancer, oncology, tumor biology, hematologic malignancy, or cancer biomarker research.
 - Do not provide treatment instructions, wet-lab steps, dosages, therapeutic constructs, DNA/RNA/protein sequences, or clinical advice.
 - Do not use "malignant neoplasm" or a bare "neoplasm" as the condition when the request contains a more specific clue such as an organ, tissue, species, syndrome, or blood/immune context.
 - If the user says "blood cancer", include leukemia, hematologic malignancy, and the major leukemia subtype search terms.
 - If the user asks for "[site] cancer" and the exact subtype is unclear, preserve "[site] cancer" as condition and include likely medical synonyms such as "[site] carcinoma" in terms.
-- Build 4-6 source queries that Europe PMC/PubMed can actually run. Make them specific, recent-study oriented, and include species plus scientific organism when known.
+- Build 4-6 cancer-specific source queries that Europe PMC/PubMed can actually run. Make them specific, recent-study oriented, and include species plus scientific organism when known.
 - Include 3-5 evidence questions and a source plan for literature, accession, structure, and model-routing lookup.
 - Prefer real HGNC/VGNC-style gene symbols and public database terms over broad words.`;
 }
@@ -822,7 +829,7 @@ async function generateLlmTerminology(query: string, fallback: NormalizedRequest
           {
             role: "system",
             content:
-              "You are a biomedical research planner for a live retrieval system. Return precise terminology, source queries, target genes, and search strategy only. Never provide clinical instructions or novel biological sequences.",
+              "You are a cancer protein research planner for a live retrieval system. Return precise oncology terminology, source queries, target genes, and search strategy only. Never provide clinical instructions or novel biological sequences.",
           },
           {
             role: "user",
@@ -1540,6 +1547,7 @@ ${JSON.stringify(models)}
 
 Requirements:
 - Use the retrieved records as the grounding source. Do not invent paper titles, accessions, structures, citations, or URLs.
+- Keep the synthesis strictly limited to cancer biology, oncology, tumor biomarkers, hematologic malignancy, or cancer protein target research.
 - You may use web search only to add high-level context or very recent confirmation, but keep source-specific claims tied to retrieved records when possible.
 - If the evidence is sparse, indirect, or not species-specific, state that clearly.
 - Never output nucleotide, amino-acid, guide-RNA, viral-vector, plasmid, protocol, dosage, or clinical treatment instructions.
@@ -1657,7 +1665,7 @@ async function generateResearchSynthesis(base: ResearchBase) {
       {
         role: "system",
         content:
-          "You are a biomedical research synthesis agent. Ground output in provided source records, rank references, and keep all outputs nonclinical and sequence-gated.",
+          "You are a cancer protein research synthesis agent. Ground output in provided source records, rank references, and keep all outputs nonclinical and sequence-gated.",
       },
       {
         role: "user",
@@ -1985,6 +1993,15 @@ export async function POST(request: Request) {
     }
     if (query.length > 500) {
       return jsonResponse({ error: "Keep the request under 500 characters." }, 400);
+    }
+    if (!isCancerResearchQuery(query)) {
+      return jsonResponse(
+        {
+          error:
+            "Protazon is cancer-only. Enter an oncology, tumor, leukemia, lymphoma, melanoma, carcinoma, sarcoma, myeloma, or cancer biomarker request.",
+        },
+        400,
+      );
     }
 
     const key = cacheKey(query);

@@ -25,16 +25,18 @@ async function render() {
   );
 }
 
-test("server-renders the Helix Triage research console", async () => {
+test("server-renders the Protazon cancer protein marketplace", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Helix Triage<\/title>/i);
-  assert.match(html, /Live veterinary genomics research console/);
-  assert.match(html, /Run new research/);
-  assert.match(html, /cure to blood cancer for human/);
+  assert.match(html, /<title>Protazon<\/title>/i);
+  assert.match(html, /Cancer-only protein marketplace/);
+  assert.match(html, /Shop cancer proteins/);
+  assert.match(html, /blood cancer for human/);
+  assert.match(html, /Add to Cart|Research Cart/);
+  assert.match(html, /Buy research packet/);
   assert.match(html, /Europe PMC/);
   assert.match(html, /LLM research synthesis/);
   assert.match(html, /NCBI E-utilities/);
@@ -62,14 +64,19 @@ test("wires the live research pipeline and cache", async () => {
   assert.match(page, /fetch\("\/api\/research"/);
   assert.match(page, /refresh = true/);
   assert.match(page, /cache:\s*"no-store"/);
-  assert.match(page, /Use cached packet/);
+  assert.match(page, /Protazon/);
+  assert.match(page, /Cancer proteins/);
+  assert.match(page, /Add to Cart/);
+  assert.match(page, /Buy research packet/);
   assert.match(page, /LLM terminology/);
   assert.match(page, /rules fallback/);
   assert.match(page, /LLM synthesis/);
   assert.match(page, /ncbi\.nlm\.nih\.gov\/Structure\/icn3d/);
-  assert.match(page, /iCn3D live simulation/);
+  assert.match(page, /iCn3D live structure/);
   assert.match(page, /setSelectedAccession/);
   assert.match(page, /Sequence gated/);
+  assert.match(route, /isCancerResearchQuery/);
+  assert.match(route, /Protazon is cancer-only/);
   assert.match(route, /LLM research planner/);
   assert.match(route, /LLM research synthesis/);
   assert.match(route, /OPENAI_API_KEY/);
