@@ -33,7 +33,8 @@ test("server-renders the Helix Triage research console", async () => {
   const html = await response.text();
   assert.match(html, /<title>Helix Triage<\/title>/i);
   assert.match(html, /Live veterinary genomics research console/);
-  assert.match(html, /Run live research/);
+  assert.match(html, /Run new research/);
+  assert.match(html, /cure to blood cancer for human/);
   assert.match(html, /Europe PMC/);
   assert.match(html, /NCBI E-utilities/);
   assert.match(html, /UniProt/);
@@ -56,8 +57,14 @@ test("wires the live research pipeline and cache", async () => {
   ]);
 
   assert.match(page, /fetch\("\/api\/research"/);
+  assert.match(page, /refresh = true/);
+  assert.match(page, /cache:\s*"no-store"/);
+  assert.match(page, /Use cached packet/);
   assert.match(page, /ngl@2\.3\.0/);
   assert.match(page, /Sequence gated/);
+  assert.match(route, /blood cancer/);
+  assert.match(route, /leukemia/);
+  assert.match(route, /hematologic malignancy/);
   assert.match(route, /Europe PMC/);
   assert.match(route, /eutils\.ncbi\.nlm\.nih\.gov/);
   assert.match(route, /rest\.uniprot\.org/);

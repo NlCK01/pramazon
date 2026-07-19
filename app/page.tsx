@@ -46,6 +46,7 @@ const searchTargets = [
 const sampleQueries = [
   "cure to skin cancer for my dog",
   "cure to prostate cancer for hamster",
+  "cure to blood cancer for human",
   "diagnostic marker for breast cancer in cats",
 ];
 
@@ -211,7 +212,7 @@ export default function Home() {
   const displayedModels = result?.modelRoutes ?? fallbackModels;
   const structure = useMemo(() => firstStructure(result), [result]);
 
-  async function runResearch(event?: FormEvent<HTMLFormElement>, refresh = false) {
+  async function runResearch(event?: FormEvent<HTMLFormElement>, refresh = true) {
     event?.preventDefault();
     setIsLoading(true);
     setError("");
@@ -220,6 +221,7 @@ export default function Home() {
     try {
       const response = await fetch("/api/research", {
         method: "POST",
+        cache: "no-store",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query, refresh }),
       });
@@ -297,14 +299,14 @@ export default function Home() {
           </div>
           <div className="prompt-actions">
             <button type="submit" className="primary-action" disabled={isLoading}>
-              {isLoading ? "Running research" : "Run live research"}
+              {isLoading ? "Running research" : "Run new research"}
             </button>
             <button
               type="button"
               disabled={isLoading || !result}
-              onClick={() => void runResearch(undefined, true)}
+              onClick={() => void runResearch(undefined, false)}
             >
-              Refresh sources
+              Use cached packet
             </button>
             <button type="button" disabled={!result} onClick={copyPacket}>
               {copied ? "Copied" : "Copy packet"}

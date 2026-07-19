@@ -2,8 +2,8 @@
 
 Helix Triage is a veterinary genomics research console for a healthcare
 hackathon workflow. A user enters a plain-language goal, such as "cure to skin
-cancer for my dog" or "cure to prostate cancer for hamster", and the app turns
-it into a reviewed research packet.
+cancer for my dog", "cure to prostate cancer for hamster", or "cure to blood
+cancer for human", and the app turns it into a reviewed research packet.
 
 The implementation is intentionally nonclinical. It translates the request into
 medical terminology, searches trusted biomedical sources, retrieves public
@@ -21,7 +21,10 @@ sequence output.
 3. Search UniProt and NCBI Protein for accession-linked reference records.
 4. Check AlphaFold DB for public PDB/CIF structure files.
 5. Route the request to the most relevant NVIDIA model family.
-6. Cache the completed research packet in D1 for repeated prompts.
+6. Cache the completed research packet in D1 for explicit cache reuse.
+
+The main submit action always runs a fresh lookup. The cache is only used when
+the user explicitly chooses the cached packet.
 
 No external key is required for the current literature/accession/structure
 pipeline. NVIDIA model execution still requires a configured NVIDIA NIM service
