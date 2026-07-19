@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import type {
   ModelFit,
   ProteinResearchSummary,
@@ -110,6 +110,7 @@ function icn3dUrl(structure: StructureCandidate | null) {
     url: file,
     width: "100%",
     height: "100%",
+    command: "set background transparent",
     showcommand: "0",
     showtitle: "0",
     mobilemenu: "1",
@@ -123,6 +124,21 @@ function findStructureForSequence(sequence: SequenceCandidate, structures: Struc
   return structures.find((item) => item.accession === sequence.accession) ?? null;
 }
 
+function sortSequencesWithStructuresFirst(result: ResearchResult | null) {
+  if (!result) return [];
+  return result.sequences
+    .map((sequence, index) => ({
+      sequence,
+      index,
+      hasStructure: Boolean(findStructureForSequence(sequence, result.structures)),
+    }))
+    .sort((a, b) => {
+      if (a.hasStructure !== b.hasStructure) return a.hasStructure ? -1 : 1;
+      return a.index - b.index;
+    })
+    .map((item) => item.sequence);
+}
+
 function ratingFor(index: number) {
   return (4.8 - Math.min(index, 5) * 0.1).toFixed(1);
 }
@@ -132,8 +148,10 @@ function evidenceForSummary(
   result: ResearchResult,
   index: number,
 ) {
+  const normalizedPaper = summary.paper.toLowerCase();
   return (
     result.evidence.find((item) => item.id === summary.evidenceId) ??
+    result.evidence.find((item) => normalizedPaper.includes(item.title.toLowerCase())) ??
     result.evidence[index % Math.max(result.evidence.length, 1)] ??
     null
   );
@@ -162,34 +180,28 @@ function proteinSummaryFor(
   };
 }
 
-function StructureViewer({ structure }: { structure: StructureCandidate | null }) {
+function NoStructurePanel() {
+  return (
+    <div className="no-structure-panel">
+      <strong>No public 3D structure returned</strong>
+      <span>This protein stays in the list, but no filler model is shown.</span>
+    </div>
+  );
+}
+
+function StructureViewer({ structure }: { structure: StructureCandidate }) {
   const viewerUrl = useMemo(() => icn3dUrl(structure), [structure]);
+  if (!viewerUrl) return <NoStructurePanel />;
 
   return (
-    <div className="molecule-scene" data-viewer-state={viewerUrl ? "ready" : "idle"}>
-      {viewerUrl ? (
-        <iframe
-          className="icn3d-frame"
-          src={viewerUrl}
-          title={`iCn3D structure viewer for ${structure?.accession ?? "selected target"}`}
-          allow="fullscreen; xr-spatial-tracking"
-        />
-      ) : (
-        <div className="molecule-fallback" aria-hidden="true">
-          <div className="target-surface" />
-          <div className="helix">
-            {Array.from({ length: 22 }, (_, index) => (
-              <span key={index} style={{ "--i": index } as CSSProperties} />
-            ))}
-          </div>
-          <div className="ligand-cloud">
-            <i />
-            <i />
-            <i />
-          </div>
-        </div>
-      )}
-      <span className="viewer-state">{viewerUrl ? "iCn3D live structure" : "Structure preview"}</span>
+    <div className="molecule-scene" data-viewer-state="ready">
+      <iframe
+        className="icn3d-frame"
+        src={viewerUrl}
+        title={`iCn3D structure viewer for ${structure.accession}`}
+        allow="fullscreen; xr-spatial-tracking"
+      />
+      <span className="viewer-state">iCn3D live structure</span>
     </div>
   );
 }
@@ -216,6 +228,7 @@ export default function Home() {
     () => result?.sequences.filter((item) => cartAccessions.includes(item.accession)) ?? [],
     [cartAccessions, result],
   );
+  const displayedSequences = useMemo(() => sortSequencesWithStructuresFirst(result), [result]);
 
   async function runResearch(event?: FormEvent<HTMLFormElement>, refresh = true) {
     event?.preventDefault();
@@ -393,9 +406,9 @@ export default function Home() {
             <span>{result?.cached ? "Cached order" : "Fresh order"}</span>
           </div>
 
-          {result?.sequences.length ? (
+          {result && displayedSequences.length ? (
             <div className="product-list">
-              {result.sequences.map((item, index) => {
+              {displayedSequences.map((item, index) => {
                 const structure = findStructureForSequence(item, result.structures);
                 const inCart = cartAccessions.includes(item.accession);
                 const summary = proteinSummaryFor(item, result, index);
@@ -403,15 +416,17 @@ export default function Home() {
                 return (
                   <article className="product-card" key={`${item.database}-${item.accession}`}>
                     <div className="product-structure">
-                      <button
-                        type="button"
-                        className="structure-select"
-                        onClick={() => structure && setSelectedAccession(structure.accession)}
-                        disabled={!structure}
-                      >
-                        {structure ? "NIH / NCBI iCn3D model" : "No public NIH structure found"}
-                      </button>
-                      <StructureViewer structure={structure} />
+                      <div className="structure-strip">
+                        <span>{structure ? "3D structure" : "No structure"}</span>
+                        {structure ? (
+                          <button type="button" onClick={() => setSelectedAccession(structure.accession)}>
+                            {structure.source} · {structure.accession}
+                          </button>
+                        ) : (
+                          <em>No public PDB/CIF file returned</em>
+                        )}
+                      </div>
+                      {structure ? <StructureViewer structure={structure} /> : <NoStructurePanel />}
                     </div>
                     <div className="product-info">
                       <a href={item.href}>
@@ -431,9 +446,15 @@ export default function Home() {
                         <section>
                           <h4>Paper</h4>
                           {evidence ? (
-                            <a href={evidence.href}>{summary.paper}</a>
+                            <a className="paper-link" href={evidence.href}>
+                              <span>Exact paper</span>
+                              <strong>{evidence.title}</strong>
+                              <small>
+                                {evidence.source} · {evidence.year} · {evidence.signal}
+                              </small>
+                            </a>
                           ) : (
-                            <p>{summary.paper}</p>
+                            <p className="paper-missing">{summary.paper}</p>
                           )}
                         </section>
                         <section>
@@ -566,7 +587,7 @@ export default function Home() {
               </a>
             ) : null}
           </div>
-          <StructureViewer structure={selectedStructure} />
+          {selectedStructure ? <StructureViewer structure={selectedStructure} /> : <NoStructurePanel />}
           <div className="structure-picker" aria-label="Available structure simulations">
             {result?.structures.length ? (
               result.structures.map((item) => (

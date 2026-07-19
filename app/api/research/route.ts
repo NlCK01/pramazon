@@ -1825,6 +1825,29 @@ function reorderSequences(sequences: SequenceCandidate[], order: string[]) {
   });
 }
 
+function sortSequencesWithStructuresFirst(
+  sequences: SequenceCandidate[],
+  structures: StructureCandidate[],
+) {
+  const structuredAccessions = new Set(
+    structures
+      .filter((item) => item.pdbUrl || item.cifUrl)
+      .map((item) => item.accession),
+  );
+
+  return sequences
+    .map((sequence, index) => ({
+      sequence,
+      index,
+      hasStructure: structuredAccessions.has(sequence.accession),
+    }))
+    .sort((a, b) => {
+      if (a.hasStructure !== b.hasStructure) return a.hasStructure ? -1 : 1;
+      return a.index - b.index;
+    })
+    .map((item) => item.sequence);
+}
+
 function sortSequencesByTargets(sequences: SequenceCandidate[], targetGenes: string[]) {
   const geneRank = new Map(targetGenes.map((gene, index) => [gene.toUpperCase(), index]));
   const databaseRank = new Map<SequenceCandidate["database"], number>([
@@ -2065,7 +2088,10 @@ async function runResearch(query: string): Promise<ResearchResult> {
     cached: false,
   };
   const synthesisResult = await generateResearchSynthesis(base);
-  const finalSequences = reorderSequences(base.sequences, synthesisResult.synthesis.accessionOrder);
+  const finalSequences = sortSequencesWithStructuresFirst(
+    reorderSequences(base.sequences, synthesisResult.synthesis.accessionOrder),
+    alphaFold.structures,
+  );
   const finalBase: Omit<ResearchResult, "packet"> = {
     ...base,
     evidence: reorderEvidence(base.evidence, synthesisResult.synthesis.evidenceOrder),

@@ -507,23 +507,50 @@ button:disabled {
   min-width: 0;
 }
 
-.structure-select {
-  justify-self: start;
-  min-height: 30px;
-  border-color: #c7e4ea;
-  border-radius: 999px;
-  background: #eef8fa;
-  color: var(--blue);
-  font-size: 0.78rem;
-  font-weight: 800;
+.structure-strip {
+  display: flex;
+  min-height: 24px;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
-.structure-select:hover {
-  background: #dff2f6;
+.structure-strip span {
+  flex: 0 0 auto;
+  border: 1px solid #c7e4ea;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #eef8fa;
+  color: var(--blue);
+  text-transform: uppercase;
+}
+
+.structure-strip button {
+  min-height: 24px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--blue);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.structure-strip button:hover {
+  background: transparent;
+  color: #c45500;
+  text-decoration: underline;
+}
+
+.structure-strip em {
+  color: var(--muted);
+  font-style: normal;
 }
 
 .product-structure .molecule-scene {
-  height: 280px;
+  height: 420px;
   margin-top: 0;
 }
 
@@ -617,6 +644,34 @@ button:disabled {
 .protein-explain a {
   color: var(--blue);
   font-weight: 700;
+}
+
+.paper-link {
+  display: grid;
+  gap: 5px;
+  border: 1px solid #b6dce5;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #f3fbfd;
+}
+
+.paper-link span {
+  color: #8a4b00;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.paper-link strong {
+  color: #007185;
+  font-size: 0.98rem;
+  line-height: 1.34;
+}
+
+.paper-link small,
+.paper-missing {
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .product-actions {
@@ -847,14 +902,12 @@ button:disabled {
 
 .molecule-scene {
   position: relative;
-  height: 360px;
+  height: 480px;
   margin-top: 18px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background:
-    linear-gradient(135deg, #f8fafb, #e9f1f3),
-    linear-gradient(90deg, rgba(0, 113, 133, 0.1), rgba(254, 189, 105, 0.12));
+  background: #ffffff;
 }
 
 .icn3d-frame {
@@ -862,12 +915,7 @@ button:disabled {
   height: 100%;
   display: block;
   border: 0;
-  background: #ffffff;
-}
-
-.molecule-fallback {
-  position: absolute;
-  inset: 0;
+  background: transparent;
 }
 
 .viewer-state {
@@ -898,91 +946,27 @@ button:disabled {
   background: #fff8e7;
 }
 
-.target-surface {
-  position: absolute;
-  inset: 72px 52px 42px 58px;
-  border: 1px solid rgba(0, 113, 133, 0.16);
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(0, 113, 133, 0.18), rgba(254, 189, 105, 0.18));
-  filter: blur(0.2px);
-  transform: rotateX(56deg) rotateZ(-18deg);
-}
-
-.helix {
-  position: absolute;
-  top: 48%;
-  left: 50%;
-  width: 270px;
-  height: 270px;
-  transform-style: preserve-3d;
-  animation: helix-spin 9s linear infinite;
-}
-
-.helix span {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: var(--orange);
-  box-shadow: 0 0 18px rgba(254, 189, 105, 0.42);
-  transform:
-    rotateY(calc(var(--i) * 22deg))
-    translateZ(112px)
-    translateY(calc((var(--i) - 11) * 9px));
-}
-
-.helix span:nth-child(2n) {
-  background: var(--blue);
-  box-shadow: 0 0 18px rgba(0, 113, 133, 0.42);
-}
-
-.helix span:nth-child(3n) {
-  background: #b12704;
-  box-shadow: 0 0 18px rgba(177, 39, 4, 0.32);
-}
-
-.ligand-cloud {
-  position: absolute;
-  right: 56px;
-  bottom: 54px;
+.no-structure-panel {
+  min-height: 220px;
   display: grid;
-  width: 88px;
-  height: 88px;
-  place-items: center;
-}
-
-.ligand-cloud i {
-  position: absolute;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
+  place-content: center;
+  gap: 8px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  padding: 18px;
   background: #ffffff;
-  box-shadow: 0 3px 12px rgba(15, 17, 17, 0.14);
+  color: var(--muted);
+  text-align: center;
 }
 
-.ligand-cloud i:nth-child(1) {
-  transform: translate(-22px, -8px);
+.no-structure-panel strong {
+  color: #111111;
+  font-size: 1rem;
 }
 
-.ligand-cloud i:nth-child(2) {
-  transform: translate(16px, 10px);
-  background: var(--orange);
-}
-
-.ligand-cloud i:nth-child(3) {
-  transform: translate(0, -34px);
-  background: var(--blue);
-}
-
-@keyframes helix-spin {
-  from {
-    transform: translate(-50%, -50%) rotateX(62deg) rotateZ(0deg);
-  }
-  to {
-    transform: translate(-50%, -50%) rotateX(62deg) rotateZ(360deg);
-  }
+.no-structure-panel span {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .gate-pill {
@@ -1157,7 +1141,11 @@ pre {
   }
 
   .molecule-scene {
-    height: 320px;
+    height: 380px;
+  }
+
+  .product-structure .molecule-scene {
+    height: 360px;
   }
 
   .architecture-list li {
