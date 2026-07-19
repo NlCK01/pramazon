@@ -36,7 +36,7 @@ test("server-renders the Pramazon cancer protein marketplace", async () => {
   assert.match(html, /Shop cancer proteins/);
   assert.match(html, /blood cancer for human/);
   assert.match(html, /Add to Cart|Research Cart/);
-  assert.match(html, /Copy research packet/);
+  assert.match(html, /Open research packet/);
   assert.match(html, /Europe PMC/);
   assert.match(html, /LLM protein summaries/);
   assert.match(html, /NCBI E-utilities/);
@@ -51,8 +51,11 @@ test("server-renders the Pramazon cancer protein marketplace", async () => {
 });
 
 test("wires the live research pipeline and cache", async () => {
-  const [page, route, schema, hosting, migration, envExample, packageJson] = await Promise.all([
+  const [page, packetPage, suppliers, css, route, schema, hosting, migration, envExample, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/packet/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/lib/supplier-links.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/api/research/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
@@ -67,7 +70,10 @@ test("wires the live research pipeline and cache", async () => {
   assert.match(page, /Pramazon/);
   assert.match(page, /Cancer proteins/);
   assert.match(page, /Add to research cart/);
-  assert.match(page, /Copy research packet/);
+  assert.match(page, /Open research packet/);
+  assert.match(page, /openPacketPage/);
+  assert.match(page, /localStorage\.setItem/);
+  assert.match(page, /\/packet\?run=/);
   assert.match(page, /proteinSummaryFor/);
   assert.match(page, /What it does/);
   assert.match(page, /Why useful/);
@@ -81,7 +87,7 @@ test("wires the live research pipeline and cache", async () => {
   assert.match(page, /rules fallback/);
   assert.match(page, /LLM synthesis/);
   assert.match(page, /ncbi\.nlm\.nih\.gov\/Structure\/icn3d/);
-  assert.match(page, /set background transparent/);
+  assert.match(page, /set background transparent; style proteins cartoon; color orange/);
   assert.match(page, /iCn3D live structure/);
   assert.match(page, /No public 3D structure returned/);
   assert.match(page, /setSelectedAccession/);
@@ -115,6 +121,19 @@ test("wires the live research pipeline and cache", async () => {
   assert.match(route, /alphafold\.ebi\.ac\.uk/);
   assert.match(route, /WITHHELD_BY_RESEARCH_SAFETY_GATE/);
   assert.match(route, /OpenFold3/);
+  assert.match(packetPage, /Combined research packet/);
+  assert.match(packetPage, /supplierLinksForSequence/);
+  assert.match(packetPage, /Company catalog searches/);
+  assert.match(packetPage, /Exact paper/);
+  assert.match(packetPage, /research catalog searches, not clinical purchase/);
+  assert.match(suppliers, /Thermo Fisher protein search/);
+  assert.match(suppliers, /MilliporeSigma product search/);
+  assert.match(suppliers, /Abcam recombinant protein search/);
+  assert.match(suppliers, /MedChemExpress compound search/);
+  assert.match(suppliers, /Selleckchem inhibitor search/);
+  assert.match(css, /grid-template-columns:\s*150px minmax\(0, 1fr\) 92px/);
+  assert.match(css, /white-space:\s*nowrap/);
+  assert.match(css, /packet-shell/);
   assert.match(schema, /researchRuns/);
   assert.match(hosting, /"d1":\s*"DB"/);
   assert.match(migration, /CREATE TABLE `research_runs`/);
