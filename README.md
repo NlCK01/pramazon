@@ -1,51 +1,98 @@
 # Pramazon
 
-Pramazon is a cancer-only protein research marketplace for a healthcare
-hackathon workflow. A user enters an oncology goal, such as "skin cancer for my
-dog", "prostate cancer for hamster", or "blood cancer for human", and the app
-turns it into accession-backed protein cards with NIH/NCBI iCn3D structure
-previews, AI-written protein explanations, and a reviewed research packet.
+Pramazon is a cancer-only AI protein research marketplace built for a healthcare
+hackathon. A user types a cancer research prompt, and the app turns it into
+oncology terminology, live literature results, accession-backed protein cards,
+NIH/NCBI iCn3D structure previews, and a copyable research packet.
 
-The implementation is intentionally nonclinical. It rejects non-cancer prompts,
-translates cancer requests into oncology terminology, searches trusted
-biomedical sources, retrieves public accession and structure candidates, routes
-the task across NVIDIA BioNeMo/NIM model families, shows an NCBI iCn3D protein
-structure simulation beside each protein when a public PDB/CIF file is found,
-and produces a copyable packet while withholding unvalidated therapeutic
-sequence output. The cart is a research-selection metaphor; no real product
-purchase occurs.
+[Live demo](https://helix-triage.nxlck0.chatgpt.site)
 
-## Live Pipeline
+## Screenshots
+
+The first screen behaves like a research marketplace: search a cancer problem,
+review protein candidates, inspect source papers, and add proteins to a
+research cart.
+
+![Pramazon search results with protein structure preview](docs/screenshots/pramazon-results.png)
+
+The structure viewer embeds NIH/NCBI iCn3D so public PDB/CIF structure files can
+be inspected directly in the app.
+
+![NIH NCBI iCn3D protein structure viewer](docs/screenshots/pramazon-structure.png)
+
+The evidence section keeps the literature and model-routing context visible, so
+users can see why a protein was selected.
+
+![Ranked oncology sources and model route cards](docs/screenshots/pramazon-evidence.png)
+
+## What It Does
+
+- Accepts cancer-focused prompts such as `blood cancer for human`,
+  `skin cancer for my dog`, or `breast cancer for humans`.
+- Normalizes the prompt into oncology terminology with an LLM when
+  `OPENAI_API_KEY` is configured.
+- Searches trusted biomedical sources for recent literature, accession records,
+  and public structure files.
+- Displays proteins as research cards with accession IDs, source links, paper
+  summaries, usefulness notes, and iCn3D previews when structures exist.
+- Produces a research packet while withholding unvalidated therapeutic sequence
+  output.
+
+## How The Pipeline Works
 
 `POST /api/research` runs the backend workflow:
 
-1. Reject non-cancer prompts before any retrieval.
+1. Reject non-cancer prompts before retrieval.
 2. Ask an LLM to plan species, condition, intent, target genes, evidence
-   questions, source strategy, and multiple source-specific search queries. If
-   `OPENAI_API_KEY` is not configured, use the deterministic fallback profiles
-   and mark the result as fallback-generated.
-3. Search Europe PMC with multiple planned cancer queries and merge/dedupe current
-   literature.
+   questions, source strategy, and search terms.
+3. Search Europe PMC for cancer literature and merge duplicate results.
 4. Search UniProt and NCBI Protein for accession-linked reference records.
-5. Check AlphaFold DB for public PDB/CIF structure files that can be opened in
-   NCBI iCn3D.
-6. Ask the LLM to synthesize the retrieved evidence, accession choices, and
-   model route into the research packet, including per-protein notes for source
-   paper, biological role, and cancer usefulness. Hosted OpenAI web search is
-   attempted when available.
-7. Route the request to the most relevant NVIDIA model family.
-8. Cache the completed research packet in D1 for explicit cache reuse.
+5. Check AlphaFold DB for public PDB/CIF files that can open in NCBI iCn3D.
+6. Ask the LLM to synthesize the retrieved evidence into protein summaries and
+   a research packet.
+7. Route the request to the most relevant NVIDIA BioNeMo/NIM-style model path.
+8. Cache completed research runs in D1 for explicit cache reuse.
 
-The main submit action always runs a fresh lookup. The cache is only used when
-the user explicitly chooses the cached packet.
+If no OpenAI key is configured, the app still runs deterministic cancer planning
+and live public-source lookups.
 
-No external key is required for the current cancer literature/accession/structure
-pipeline. LLM terminology requires `OPENAI_API_KEY`. NVIDIA model execution
-still requires a configured NVIDIA NIM service and review-approved model inputs.
+## Safety Boundary
+
+This is a nonclinical research interface. It does not emit novel therapeutic
+DNA, RNA, viral-vector, or protein sequences. It can return public accession
+IDs, source links, PDB/CIF structure links, and model-routing scaffolds.
+
+Any real therapeutic design, synthesis, animal use, or clinical decision would
+require qualified oncology review, target validation, biosafety approval,
+provenance tracking, and assay evidence.
+
+## Tech Stack
+
+- Next.js / React
+- Vinext and Cloudflare-compatible worker output
+- D1-backed research-run cache
+- Europe PMC, NCBI E-utilities, UniProt, and AlphaFold DB lookups
+- NIH/NCBI iCn3D embedded structure viewer
+- Optional OpenAI LLM planning and synthesis
+
+## Run Locally
+
+```bash
+npm install
+npm run dev
+```
+
+Useful validation commands:
+
+```bash
+npm run build
+npm test
+npm run lint
+```
 
 ## Environment
 
-Configure these locally or in Sites runtime environment variables:
+Copy `.env.example` and configure only the values you need:
 
 ```bash
 OPENAI_API_KEY=
@@ -55,46 +102,15 @@ OPENAI_ENABLE_WEB_SEARCH=true
 OPENAI_WEB_SEARCH_TOOL=web_search
 ```
 
-Only `OPENAI_API_KEY` is required for the LLM planner and synthesis pass.
-`OPENAI_MODEL`, `OPENAI_BASE_URL`, and the hosted web-search flags are optional
-overrides. If no API key is configured, the live cancer source lookups still
-run with deterministic planning and synthesis.
+`OPENAI_API_KEY` enables the LLM planner and synthesis pass. The public
+literature, accession, and structure lookups can still run without it.
 
-## Safety Boundary
+## Project Map
 
-The app does not emit novel therapeutic DNA, RNA, viral-vector, or protein
-sequences. It can return public accession IDs, source links, PDB/CIF structure
-links, and model request scaffolds. Production sequence output should require
-qualified veterinary oncology review, target validation, biosafety approval,
-provenance tracking, and assay results.
-
-## Model Routing
-
-- Evo 2: genomic foundation model for variant scoring and nonclinical genomic
-  modeling.
-- OpenFold3: primary route for 3D biomolecular complex prediction once approved
-  entities are known.
-- RFdiffusion and ProteinMPNN: deferred route for protein binder design after a
-  validated target and assay plan exist.
-- MolMIM and DiffDock: deferred route for small-molecule exploration.
-
-## Useful Commands
-
-```bash
-npm install
-npm run dev
-npm run build
-npm test
-```
-
-## Project Notes
-
-- App code lives under `app/`.
-- The UI uses a marketplace-style cancer protein search, research cards, and a
-  research cart, with NCBI iCn3D embedded beside each protein when a public
-  structure is found.
-- `.openai/hosting.json` declares the Sites D1 binding used for research-run
-  caching.
-- `db/schema.ts` defines the `research_runs` cache table.
-- `tests/rendered-html.test.mjs` builds and checks the rendered console and
-  live pipeline wiring.
+- `app/page.tsx` - main Pramazon UI.
+- `app/api/research/route.ts` - cancer prompt normalization, source lookup,
+  synthesis, and model routing.
+- `app/lib/research-types.ts` - shared research result types.
+- `db/schema.ts` - D1 research-run cache schema.
+- `tests/rendered-html.test.mjs` - build and rendered-output checks.
+- `docs/screenshots/` - GitHub README screenshots.
