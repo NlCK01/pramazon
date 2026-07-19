@@ -16,7 +16,9 @@ sequence output.
 
 `POST /api/research` runs the backend workflow:
 
-1. Normalize species, condition, intent, search terms, and target genes.
+1. Ask an LLM to normalize species, condition, intent, search terms, and target
+   genes. If `OPENAI_API_KEY` is not configured, use the deterministic fallback
+   profiles and mark the result as fallback-generated.
 2. Search Europe PMC for current literature.
 3. Search UniProt and NCBI Protein for accession-linked reference records.
 4. Check AlphaFold DB for public PDB/CIF structure files.
@@ -27,8 +29,21 @@ The main submit action always runs a fresh lookup. The cache is only used when
 the user explicitly chooses the cached packet.
 
 No external key is required for the current literature/accession/structure
-pipeline. NVIDIA model execution still requires a configured NVIDIA NIM service
-and review-approved model inputs.
+pipeline. LLM terminology requires `OPENAI_API_KEY`. NVIDIA model execution
+still requires a configured NVIDIA NIM service and review-approved model inputs.
+
+## Environment
+
+Configure these locally or in Sites runtime environment variables:
+
+```bash
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5-mini
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+Only `OPENAI_API_KEY` is required for LLM terminology. `OPENAI_MODEL` and
+`OPENAI_BASE_URL` are optional overrides.
 
 ## Safety Boundary
 

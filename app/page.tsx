@@ -331,6 +331,11 @@ export default function Home() {
             <div className="confidence-row">
               <strong>{result.normalized.confidence}</strong>
               <span>{result.normalized.organism}</span>
+              <span>
+                {result.normalized.terminologySource === "llm"
+                  ? `LLM terminology${result.normalized.llmModel ? `: ${result.normalized.llmModel}` : ""}`
+                  : "rules fallback"}
+              </span>
               <span>{result.cached ? "cached result" : "fresh retrieval"}</span>
             </div>
           ) : null}

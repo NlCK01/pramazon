@@ -63,8 +63,11 @@ export type NormalizedRequest = {
   confidence: ConfidenceLevel;
   terms: string[];
   targetGenes: string[];
+  searchQueries: string[];
   taxonomyId?: string;
   needsClarification: boolean;
+  terminologySource: "llm" | "rules";
+  llmModel?: string;
 };
 
 export type SafetyAssessment = {

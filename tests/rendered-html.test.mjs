@@ -47,12 +47,13 @@ test("server-renders the Helix Triage research console", async () => {
 });
 
 test("wires the live research pipeline and cache", async () => {
-  const [page, route, schema, hosting, migration, packageJson] = await Promise.all([
+  const [page, route, schema, hosting, migration, envExample, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/research/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0000_quick_blockbuster.sql", import.meta.url), "utf8"),
+    readFile(new URL("../.env.example", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
@@ -60,8 +61,15 @@ test("wires the live research pipeline and cache", async () => {
   assert.match(page, /refresh = true/);
   assert.match(page, /cache:\s*"no-store"/);
   assert.match(page, /Use cached packet/);
+  assert.match(page, /LLM terminology/);
+  assert.match(page, /rules fallback/);
   assert.match(page, /ngl@2\.3\.0/);
   assert.match(page, /Sequence gated/);
+  assert.match(route, /Terminology LLM/);
+  assert.match(route, /OPENAI_API_KEY/);
+  assert.match(route, /\/responses/);
+  assert.match(route, /json_schema/);
+  assert.match(route, /searchQueries/);
   assert.match(route, /blood cancer/);
   assert.match(route, /leukemia/);
   assert.match(route, /hematologic malignancy/);
@@ -74,6 +82,8 @@ test("wires the live research pipeline and cache", async () => {
   assert.match(schema, /researchRuns/);
   assert.match(hosting, /"d1":\s*"DB"/);
   assert.match(migration, /CREATE TABLE `research_runs`/);
+  assert.match(envExample, /OPENAI_API_KEY=/);
+  assert.match(envExample, /OPENAI_MODEL=gpt-5-mini/);
   assert.doesNotMatch(page, /SkeletonPreview|_sites-preview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 

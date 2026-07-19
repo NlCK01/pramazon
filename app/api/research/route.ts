@@ -16,10 +16,33 @@ export const dynamic = "force-dynamic";
 const CACHE_TTL_MS = 1000 * 60 * 60 * 12;
 const REQUEST_TIMEOUT_MS = 9000;
 const APP_EMAIL = "helix-triage@example.com";
+const DEFAULT_OPENAI_MODEL = "gpt-5-mini";
 
 type ResearchCacheRow = {
   result_json: string;
   created_at: number;
+};
+
+type RuntimeEnv = {
+  DB?: D1Database;
+  OPENAI_API_KEY?: string;
+  OPENAI_MODEL?: string;
+  OPENAI_BASE_URL?: string;
+};
+
+type LlmTerminology = {
+  speciesCommon: string;
+  organism: string;
+  taxonomyId: string;
+  condition: string;
+  diseaseGroup: string;
+  intent: string;
+  confidence: NormalizedRequest["confidence"];
+  medical: string;
+  terms: string[];
+  targetGenes: string[];
+  searchQueries: string[];
+  needsClarification: boolean;
 };
 
 type SpeciesProfile = {
@@ -241,6 +264,26 @@ function unique<T>(items: T[]) {
   return Array.from(new Set(items));
 }
 
+function cleanArray(value: unknown, fallback: string[], limit: number) {
+  const raw = Array.isArray(value) ? value : fallback;
+  return unique(
+    raw
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.replace(/\s+/g, " ").trim())
+      .filter(Boolean),
+  ).slice(0, limit);
+}
+
+function cleanGenes(value: unknown, fallback: string[]) {
+  return cleanArray(value, fallback, 12)
+    .map((item) => item.toUpperCase().replace(/[^A-Z0-9-]/g, ""))
+    .filter(Boolean);
+}
+
+function cleanConfidence(value: unknown, fallback: NormalizedRequest["confidence"]) {
+  return value === "high" || value === "medium" || value === "low" ? value : fallback;
+}
+
 function firstSentence(value: string | undefined, fallback: string) {
   if (!value) return fallback;
   const stripped = value.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
@@ -322,6 +365,10 @@ function normalizeRequest(query: string): NormalizedRequest {
     "recent study",
     "sequence accession",
   ]).filter(Boolean);
+  const searchQueries = [
+    `("${disease.canonical}" OR "${disease.group}")${species.common === "unspecified species" ? "" : ` AND ("${species.common}" OR "${species.scientific}")`}`,
+    `${terms.slice(0, 4).join(" ")} ${disease.targetGenes.slice(0, 3).join(" ")}`.trim(),
+  ];
 
   return {
     plain: query,
@@ -337,8 +384,10 @@ function normalizeRequest(query: string): NormalizedRequest {
     confidence,
     terms,
     targetGenes: disease.targetGenes,
+    searchQueries,
     taxonomyId: species.taxonomyId,
     needsClarification: !directSpecies || !directDisease,
+    terminologySource: "rules",
   };
 }
 
@@ -367,6 +416,228 @@ function makeSafetyAssessment(normalized: NormalizedRequest): SafetyAssessment {
       "Clinical treatment instructions",
     ],
   };
+}
+
+function buildLlmPrompt(query: string, fallback: NormalizedRequest) {
+  return `Normalize this biomedical research request for literature and accession lookup.
+
+User request:
+${query}
+
+Deterministic fallback interpretation:
+species=${fallback.organism}
+condition=${fallback.condition}
+terms=${fallback.terms.join("; ")}
+target_genes=${fallback.targetGenes.join(", ")}
+
+Return only terminology and search metadata. Do not provide treatment instructions, wet-lab steps, dosages, therapeutic constructs, DNA/RNA/protein sequences, or clinical advice. If the user says "blood cancer", include leukemia and hematologic malignancy terminology. Prefer medically precise terms and source-searchable gene symbols.`;
+}
+
+function extractResponseText(payload: unknown) {
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "output_text" in payload &&
+    typeof payload.output_text === "string"
+  ) {
+    return payload.output_text;
+  }
+
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "output" in payload &&
+    Array.isArray(payload.output)
+  ) {
+    return payload.output
+      .flatMap((item) =>
+        typeof item === "object" &&
+        item !== null &&
+        "content" in item &&
+        Array.isArray(item.content)
+          ? item.content
+          : [],
+      )
+      .map((content) =>
+        typeof content === "object" &&
+        content !== null &&
+        "text" in content &&
+        typeof content.text === "string"
+          ? content.text
+          : "",
+      )
+      .join("")
+      .trim();
+  }
+
+  return "";
+}
+
+function mergeLlmTerminology(
+  query: string,
+  fallback: NormalizedRequest,
+  value: Partial<LlmTerminology>,
+  model: string,
+): NormalizedRequest {
+  const terms = cleanArray(value.terms, fallback.terms, 14);
+  const targetGenes = cleanGenes(value.targetGenes, fallback.targetGenes);
+  const searchQueries = cleanArray(
+    value.searchQueries,
+    fallback.searchQueries,
+    6,
+  );
+  const organism =
+    typeof value.organism === "string" && value.organism.trim()
+      ? value.organism.trim()
+      : fallback.organism;
+  const speciesCommon =
+    typeof value.speciesCommon === "string" && value.speciesCommon.trim()
+      ? value.speciesCommon.trim().toLowerCase()
+      : fallback.speciesCommon;
+  const condition =
+    typeof value.condition === "string" && value.condition.trim()
+      ? value.condition.trim()
+      : fallback.condition;
+  const diseaseGroup =
+    typeof value.diseaseGroup === "string" && value.diseaseGroup.trim()
+      ? value.diseaseGroup.trim()
+      : fallback.diseaseGroup;
+  const medical =
+    typeof value.medical === "string" && value.medical.trim()
+      ? value.medical.trim()
+      : fallback.medical;
+
+  return {
+    plain: query,
+    medical,
+    organism,
+    speciesCommon,
+    condition,
+    diseaseGroup,
+    intent:
+      typeof value.intent === "string" && value.intent.trim()
+        ? value.intent.trim()
+        : fallback.intent,
+    confidence: cleanConfidence(value.confidence, fallback.confidence),
+    terms,
+    targetGenes,
+    searchQueries,
+    taxonomyId:
+      typeof value.taxonomyId === "string" && value.taxonomyId.trim()
+        ? value.taxonomyId.trim()
+        : fallback.taxonomyId,
+    needsClarification:
+      typeof value.needsClarification === "boolean"
+        ? value.needsClarification
+        : fallback.needsClarification,
+    terminologySource: "llm",
+    llmModel: model,
+  };
+}
+
+async function generateLlmTerminology(query: string, fallback: NormalizedRequest) {
+  const env = await getRuntimeEnv();
+  const apiKey = env.OPENAI_API_KEY;
+  const model = env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
+  const baseUrl = (env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
+  const status: ProviderStatus = {
+    provider: "Terminology LLM",
+    state: "empty",
+    detail: "OPENAI_API_KEY is not configured; used deterministic terminology fallback.",
+  };
+
+  if (!apiKey) {
+    return { normalized: fallback, status };
+  }
+
+  try {
+    const response = await fetchWithTimeout(`${baseUrl}/responses`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        input: [
+          {
+            role: "system",
+            content:
+              "You are a biomedical terminology normalizer for a research retrieval system. Return precise, searchable terminology only. Never provide clinical instructions or novel biological sequences.",
+          },
+          {
+            role: "user",
+            content: buildLlmPrompt(query, fallback),
+          },
+        ],
+        max_output_tokens: 1400,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "biomedical_terminology",
+            strict: true,
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              required: [
+                "speciesCommon",
+                "organism",
+                "taxonomyId",
+                "condition",
+                "diseaseGroup",
+                "intent",
+                "confidence",
+                "medical",
+                "terms",
+                "targetGenes",
+                "searchQueries",
+                "needsClarification",
+              ],
+              properties: {
+                speciesCommon: { type: "string" },
+                organism: { type: "string" },
+                taxonomyId: { type: "string" },
+                condition: { type: "string" },
+                diseaseGroup: { type: "string" },
+                intent: { type: "string" },
+                confidence: { type: "string", enum: ["high", "medium", "low"] },
+                medical: { type: "string" },
+                terms: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                targetGenes: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                searchQueries: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                needsClarification: { type: "boolean" },
+              },
+            },
+          },
+        },
+      }),
+    });
+    const payload = await response.json();
+    const outputText = extractResponseText(payload);
+    const parsed = JSON.parse(outputText) as Partial<LlmTerminology>;
+    status.state = "ok";
+    status.detail = `Generated terminology with ${model} and used it for source queries.`;
+
+    return {
+      normalized: mergeLlmTerminology(query, fallback, parsed, model),
+      status,
+    };
+  } catch (error) {
+    status.state = "error";
+    status.detail = `LLM terminology failed; used deterministic fallback. ${
+      error instanceof Error ? error.message : "Unknown error"
+    }`;
+    return { normalized: fallback, status };
+  }
 }
 
 function scoreEvidence(item: {
@@ -438,6 +709,11 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 function buildEuropePmcQuery(normalized: NormalizedRequest) {
+  const llmQuery = normalized.searchQueries[0]?.replace(/\s+/g, " ").trim();
+  if (llmQuery) {
+    return `${llmQuery} sort_date:y`;
+  }
+
   const species =
     normalized.speciesCommon === "unspecified species"
       ? ""
@@ -855,18 +1131,18 @@ function cacheKey(query: string) {
   return normalizeText(query).slice(0, 240);
 }
 
-async function getD1() {
+async function getRuntimeEnv(): Promise<RuntimeEnv> {
   try {
     const workers = await import("cloudflare:workers");
-    return workers.env.DB ?? null;
+    return workers.env as RuntimeEnv;
   } catch {
-    return null;
+    return {};
   }
 }
 
 async function readCachedResult(key: string) {
   try {
-    const db = await getD1();
+    const db = (await getRuntimeEnv()).DB;
     if (!db) return null;
 
     const row = await db
@@ -886,7 +1162,7 @@ async function readCachedResult(key: string) {
 
 async function writeCachedResult(key: string, query: string, result: ResearchResult) {
   try {
-    const db = await getD1();
+    const db = (await getRuntimeEnv()).DB;
     if (!db) return;
 
     await db
@@ -912,7 +1188,9 @@ async function writeCachedResult(key: string, query: string, result: ResearchRes
 }
 
 async function runResearch(query: string): Promise<ResearchResult> {
-  const normalized = normalizeRequest(query);
+  const fallback = normalizeRequest(query);
+  const terminology = await generateLlmTerminology(query, fallback);
+  const normalized = terminology.normalized;
   const safety = makeSafetyAssessment(normalized);
   const [europePmc, uniProt, ncbi] = await Promise.all([
     searchEuropePmc(normalized),
@@ -932,7 +1210,7 @@ async function runResearch(query: string): Promise<ResearchResult> {
     sequences,
     structures: alphaFold.structures,
     modelRoutes,
-    providerStatus: [europePmc.status, uniProt.status, ncbi.status, alphaFold.status],
+    providerStatus: [terminology.status, europePmc.status, uniProt.status, ncbi.status, alphaFold.status],
     safety,
     cached: false,
   };
