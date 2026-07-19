@@ -8,9 +8,9 @@ cancer for human", and the app turns it into a reviewed research packet.
 The implementation is intentionally nonclinical. It translates the request into
 medical terminology, searches trusted biomedical sources, retrieves public
 accession and structure candidates, routes the task across NVIDIA BioNeMo/NIM
-model families, shows a 3D structure viewer when a public structure is found,
-and produces a copyable packet while withholding unvalidated therapeutic
-sequence output.
+model families, shows an NCBI iCn3D protein structure simulation when a public
+PDB/CIF file is found, and produces a copyable packet while withholding
+unvalidated therapeutic sequence output.
 
 ## Live Pipeline
 
@@ -23,7 +23,8 @@ sequence output.
 2. Search Europe PMC with multiple planned queries and merge/dedupe current
    literature.
 3. Search UniProt and NCBI Protein for accession-linked reference records.
-4. Check AlphaFold DB for public PDB/CIF structure files.
+4. Check AlphaFold DB for public PDB/CIF structure files that can be opened in
+   NCBI iCn3D.
 5. Ask the LLM to synthesize the retrieved evidence, accession choices, and
    model route into the research packet. Hosted OpenAI web search is attempted
    when available.
@@ -84,6 +85,8 @@ npm test
 ## Project Notes
 
 - App code lives under `app/`.
+- The UI uses a dark, centered prompt workspace and embeds NCBI iCn3D for
+  selectable protein structure simulation.
 - `.openai/hosting.json` declares the Sites D1 binding used for research-run
   caching.
 - `db/schema.ts` defines the `research_runs` cache table.

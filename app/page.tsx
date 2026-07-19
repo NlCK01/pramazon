@@ -1,39 +1,13 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type FormEvent,
-} from "react";
+import { useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import type {
   ModelFit,
   ResearchResult,
   RoutedModel,
+  SequenceCandidate,
   StructureCandidate,
 } from "./lib/research-types";
-
-type NglComponent = {
-  addRepresentation(type: string, options?: Record<string, unknown>): void;
-  autoView(): void;
-};
-
-type NglStage = {
-  loadFile(url: string, options?: Record<string, unknown>): Promise<NglComponent>;
-  removeAllComponents(): void;
-  handleResize(): void;
-  dispose?: () => void;
-};
-
-declare global {
-  interface Window {
-    NGL?: {
-      Stage: new (element: HTMLElement, options?: Record<string, unknown>) => NglStage;
-    };
-  }
-}
 
 const searchTargets = [
   "LLM research planner",
@@ -57,15 +31,13 @@ const fallbackModels: RoutedModel[] = [
     name: "OpenFold3",
     role: "3D biomolecular complex prediction",
     fit: "Primary",
-    note:
-      "Runs after the backend finds an accession or public structure candidate.",
+    note: "Runs after the backend finds an accession or public structure candidate.",
   },
   {
     name: "Evo 2",
     role: "Genomic foundation model",
     fit: "Support",
-    note:
-      "Used for reference-sequence analysis and variant scoring, not ungated therapy design.",
+    note: "Used for reference-sequence analysis and variant scoring, not ungated therapy design.",
   },
   {
     name: "RFdiffusion + ProteinMPNN",
@@ -87,10 +59,6 @@ function modelClass(fit: ModelFit) {
   return "model-card";
 }
 
-function nodeStyle(index: number): CSSProperties {
-  return { "--i": index } as CSSProperties;
-}
-
 function firstStructure(result: ResearchResult | null) {
   return result?.structures.find((item) => item.pdbUrl || item.cifUrl) ?? null;
 }
@@ -105,84 +73,50 @@ function isResearchResult(payload: unknown): payload is ResearchResult {
   );
 }
 
+function structureFile(structure: StructureCandidate | null) {
+  return structure?.pdbUrl ?? structure?.cifUrl ?? "";
+}
+
+function icn3dUrl(structure: StructureCandidate | null) {
+  const file = structureFile(structure);
+  if (!file) return "";
+
+  const params = new URLSearchParams({
+    type: file.endsWith(".cif") || file.includes(".cif") ? "mmcif" : "pdb",
+    url: file,
+    width: "100%",
+    height: "100%",
+    showcommand: "0",
+    showtitle: "0",
+    mobilemenu: "1",
+    rotate: "right",
+  });
+
+  return `https://www.ncbi.nlm.nih.gov/Structure/icn3d/?${params.toString()}`;
+}
+
+function findStructureForSequence(sequence: SequenceCandidate, structures: StructureCandidate[]) {
+  return structures.find((item) => item.accession === sequence.accession) ?? null;
+}
+
 function StructureViewer({ structure }: { structure: StructureCandidate | null }) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const [viewerState, setViewerState] = useState<"idle" | "loading" | "ready" | "fallback">(
-    structure ? "loading" : "idle",
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    let stage: NglStage | null = null;
-
-    async function loadNgl() {
-      const host = hostRef.current;
-      const structureUrl = structure?.pdbUrl ?? structure?.cifUrl;
-      if (!host || !structureUrl) {
-        setViewerState("idle");
-        return;
-      }
-
-      setViewerState("loading");
-
-      try {
-        if (!window.NGL) {
-          await new Promise<void>((resolve, reject) => {
-            const existing = document.getElementById("ngl-viewer-script") as HTMLScriptElement | null;
-            if (existing) {
-              existing.addEventListener("load", () => resolve(), { once: true });
-              existing.addEventListener("error", () => reject(new Error("NGL failed to load")), {
-                once: true,
-              });
-              return;
-            }
-
-            const script = document.createElement("script");
-            script.id = "ngl-viewer-script";
-            script.src = "https://cdn.jsdelivr.net/npm/ngl@2.3.0/dist/ngl.js";
-            script.async = true;
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error("NGL failed to load"));
-            document.head.appendChild(script);
-          });
-        }
-
-        if (cancelled || !window.NGL) return;
-
-        host.innerHTML = "";
-        stage = new window.NGL.Stage(host, {
-          backgroundColor: "white",
-        });
-        const component = await stage.loadFile(structureUrl, {
-          ext: structureUrl.endsWith(".cif") || structureUrl.includes(".cif") ? "cif" : "pdb",
-        });
-        component.addRepresentation("cartoon", { color: "chainname" });
-        component.addRepresentation("ball+stick", { sele: "hetero and not water" });
-        component.autoView();
-        stage.handleResize();
-        if (!cancelled) setViewerState("ready");
-      } catch {
-        if (!cancelled) setViewerState("fallback");
-      }
-    }
-
-    void loadNgl();
-
-    return () => {
-      cancelled = true;
-      stage?.dispose?.();
-    };
-  }, [structure]);
+  const viewerUrl = useMemo(() => icn3dUrl(structure), [structure]);
 
   return (
-    <div className="molecule-scene" data-viewer-state={viewerState}>
-      <div ref={hostRef} className="structure-viewer" aria-label="3D structure viewer" />
-      {viewerState !== "ready" ? (
+    <div className="molecule-scene" data-viewer-state={viewerUrl ? "ready" : "idle"}>
+      {viewerUrl ? (
+        <iframe
+          className="icn3d-frame"
+          src={viewerUrl}
+          title={`iCn3D structure viewer for ${structure?.accession ?? "selected target"}`}
+          allow="fullscreen; xr-spatial-tracking"
+        />
+      ) : (
         <div className="molecule-fallback" aria-hidden="true">
           <div className="target-surface" />
           <div className="helix">
             {Array.from({ length: 22 }, (_, index) => (
-              <span key={index} style={nodeStyle(index)} />
+              <span key={index} style={{ "--i": index } as CSSProperties} />
             ))}
           </div>
           <div className="ligand-cloud">
@@ -191,14 +125,8 @@ function StructureViewer({ structure }: { structure: StructureCandidate | null }
             <i />
           </div>
         </div>
-      ) : null}
-      <span className="viewer-state">
-        {viewerState === "ready"
-          ? "Live 3D structure"
-          : viewerState === "loading"
-            ? "Loading structure"
-            : "Structure preview"}
-      </span>
+      )}
+      <span className="viewer-state">{viewerUrl ? "iCn3D live simulation" : "Structure preview"}</span>
     </div>
   );
 }
@@ -206,13 +134,24 @@ function StructureViewer({ structure }: { structure: StructureCandidate | null }
 export default function Home() {
   const [query, setQuery] = useState("cure to prostate cancer for hamster");
   const [result, setResult] = useState<ResearchResult | null>(null);
+  const [selectedAccession, setSelectedAccession] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
   const packet = result?.packet ?? "Run a live research query to generate a copyable packet.";
   const displayedModels = result?.modelRoutes ?? fallbackModels;
-  const structure = useMemo(() => firstStructure(result), [result]);
+  const selectedStructure = useMemo(() => {
+    if (!result) return null;
+    return (
+      result.structures.find((item) => item.accession === selectedAccession) ??
+      firstStructure(result)
+    );
+  }, [result, selectedAccession]);
+  const structuredAccessions = useMemo(
+    () => new Set(result?.structures.map((item) => item.accession) ?? []),
+    [result],
+  );
 
   async function runResearch(event?: FormEvent<HTMLFormElement>, refresh = true) {
     event?.preventDefault();
@@ -240,6 +179,7 @@ export default function Home() {
       }
       if (!isResearchResult(payload)) throw new Error("Research response was incomplete.");
       setResult(payload);
+      setSelectedAccession(payload.structures[0]?.accession ?? "");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Research failed");
     } finally {
@@ -259,65 +199,83 @@ export default function Home() {
 
   return (
     <main className="app-shell">
+      <aside className="gemini-rail" aria-label="App navigation">
+        <div className="spark-mark" aria-hidden="true" />
+        <nav>
+          <a href="#research-query" aria-label="Prompt">
+            +
+          </a>
+          <a href="#evidence-title" aria-label="Evidence">
+            S
+          </a>
+          <a href="#sequence-title" aria-label="Targets">
+            T
+          </a>
+          <a href="#model-title" aria-label="Models">
+            M
+          </a>
+        </nav>
+        <div className="rail-bottom">
+          <a href="#architecture-title" aria-label="Provider status">
+            i
+          </a>
+        </div>
+      </aside>
+
+      <div className="top-actions" aria-label="Workspace actions">
+        <span>{result?.normalized.terminologySource === "llm" ? "LLM active" : "LLM pending"}</span>
+        <button type="button" onClick={copyPacket} disabled={!result}>
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+
       <section className="hero-band" aria-labelledby="app-title">
         <div className="hero-copy">
           <p className="eyebrow">Live veterinary genomics research console</p>
-          <h1 id="app-title">Helix Triage</h1>
-          <p className="hero-text">
-            Type any biomedical goal. The LLM plans the terminology, target
-            genes, search questions, and retrieval strategy, then the backend
-            searches trusted biomedical sources, retrieves public accession and
-            structure candidates, routes NVIDIA model options, and keeps
-            therapeutic sequence output gated.
-          </p>
-        </div>
-        <div className="status-strip" aria-label="Workflow status">
-          <span>Plan</span>
-          <span>Retrieve</span>
-          <span>Synthesize</span>
-          <span>Render</span>
+          <h1 id="app-title">What should we focus on?</h1>
+          <form className="prompt-panel" onSubmit={runResearch}>
+            <label htmlFor="research-query">Ask Helix</label>
+            <div className="prompt-input-shell">
+              <span aria-hidden="true">+</span>
+              <textarea
+                id="research-query"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                rows={2}
+                placeholder="Ask for a disease, species, target, or research goal"
+              />
+              <strong>Research</strong>
+            </div>
+            <div className="prompt-actions">
+              <button type="submit" className="primary-action" disabled={isLoading}>
+                {isLoading ? "Running research" : "Run new research"}
+              </button>
+              <button
+                type="button"
+                disabled={isLoading || !result}
+                onClick={() => void runResearch(undefined, false)}
+              >
+                Use cached packet
+              </button>
+            </div>
+            <div className="example-row" aria-label="Example prompts">
+              {sampleQueries.map((sample) => (
+                <button
+                  type="button"
+                  className="chip-button"
+                  key={sample}
+                  onClick={() => setQuery(sample)}
+                >
+                  {sample}
+                </button>
+              ))}
+            </div>
+            {error ? <p className="error-text">{error}</p> : null}
+          </form>
         </div>
       </section>
 
       <section className="workbench" aria-label="Research generator">
-        <form className="prompt-panel" onSubmit={runResearch}>
-          <label htmlFor="research-query">Plain-language request</label>
-          <textarea
-            id="research-query"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            rows={5}
-          />
-          <div className="example-row" aria-label="Example prompts">
-            {sampleQueries.map((sample) => (
-              <button
-                type="button"
-                className="chip-button"
-                key={sample}
-                onClick={() => setQuery(sample)}
-              >
-                {sample}
-              </button>
-            ))}
-          </div>
-          <div className="prompt-actions">
-            <button type="submit" className="primary-action" disabled={isLoading}>
-              {isLoading ? "Running research" : "Run new research"}
-            </button>
-            <button
-              type="button"
-              disabled={isLoading || !result}
-              onClick={() => void runResearch(undefined, false)}
-            >
-              Use cached packet
-            </button>
-            <button type="button" disabled={!result} onClick={copyPacket}>
-              {copied ? "Copied" : "Copy packet"}
-            </button>
-          </div>
-          {error ? <p className="error-text">{error}</p> : null}
-        </form>
-
         <div className="translation-panel">
           <p className="section-kicker">Medical terminology</p>
           <h2>{result?.normalized.condition ?? "Run a query"}</h2>
@@ -341,18 +299,131 @@ export default function Home() {
               <p>{result.synthesis.research}</p>
             </div>
           ) : null}
-          {result ? (
-            <div className="confidence-row">
-              <strong>{result.normalized.confidence}</strong>
-              <span>{result.normalized.organism}</span>
-              <span>
-                {result.normalized.terminologySource === "llm"
-                  ? `LLM terminology${result.normalized.llmModel ? `: ${result.normalized.llmModel}` : ""}`
-                  : "rules fallback"}
-              </span>
-              <span>{result.cached ? "cached result" : "fresh retrieval"}</span>
+        </div>
+
+        <div className="architecture-card">
+          <p className="section-kicker">Run state</p>
+          <h2>{result?.cached ? "Cached packet" : "Fresh retrieval"}</h2>
+          <div className="confidence-row">
+            {result ? (
+              <>
+                <strong>{result.normalized.confidence}</strong>
+                <span>{result.normalized.organism}</span>
+                <span>
+                  {result.normalized.terminologySource === "llm"
+                    ? `LLM terminology${result.normalized.llmModel ? `: ${result.normalized.llmModel}` : ""}`
+                    : "rules fallback"}
+                </span>
+                <span>{result.evidence.length} evidence hits</span>
+              </>
+            ) : (
+              <>
+                <span>Planner ready</span>
+                <span>Sources ready</span>
+                <span>iCn3D ready</span>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="output-band" aria-label="3D preview and generated packet">
+        <div className="molecule-panel">
+          <div className="molecule-heading">
+            <div>
+              <p className="section-kicker">Protein 3D simulation</p>
+              <h2>{selectedStructure ? selectedStructure.label : "iCn3D structure view"}</h2>
             </div>
-          ) : null}
+            {selectedStructure ? (
+              <a className="structure-link" href={selectedStructure.href}>
+                Open source
+              </a>
+            ) : null}
+          </div>
+          <StructureViewer structure={selectedStructure} />
+          <div className="structure-picker" aria-label="Available structure simulations">
+            {result?.structures.length ? (
+              result.structures.map((item) => (
+                <button
+                  type="button"
+                  key={item.accession}
+                  className={item.accession === selectedStructure?.accession ? "active" : ""}
+                  onClick={() => setSelectedAccession(item.accession)}
+                >
+                  {item.accession}
+                </button>
+              ))
+            ) : (
+              <span>Run research to load iCn3D-ready structures.</span>
+            )}
+          </div>
+          <p className="viewer-note">
+            {selectedStructure
+              ? `${selectedStructure.source} returned ${selectedStructure.accession}. iCn3D loads the public PDB/CIF file for the selected target.`
+              : "When AlphaFold or PDB structure files are found, selecting a target loads the NCBI iCn3D viewer."}
+          </p>
+        </div>
+
+        <div className="sequence-panel">
+          <div className="sequence-header">
+            <div>
+              <p className="section-kicker">Copyable output</p>
+              <h2>Research packet</h2>
+            </div>
+            <span className="gate-pill">{result?.safety.label ?? "Sequence gated"}</span>
+          </div>
+          <pre>{packet}</pre>
+        </div>
+      </section>
+
+      <section className="sequence-band" aria-labelledby="sequence-title">
+        <div className="section-heading">
+          <div>
+            <p className="section-kicker">Reference sequences</p>
+            <h2 id="sequence-title">Selectable targets</h2>
+          </div>
+          <span className="gate-pill">{result?.safety.label ?? "Reference-only"}</span>
+        </div>
+        <div className="sequence-table" role="table" aria-label="Accession candidates">
+          <div className="sequence-row sequence-head" role="row">
+            <span>Database</span>
+            <span>Accession</span>
+            <span>Record</span>
+            <span>Action</span>
+          </div>
+          {result?.sequences.length ? (
+            result.sequences.map((item) => {
+              const structure = findStructureForSequence(item, result.structures);
+              const canSimulate = structuredAccessions.has(item.accession);
+              return (
+                <div
+                  className={`sequence-row ${item.accession === selectedStructure?.accession ? "sequence-active" : ""}`}
+                  role="row"
+                  key={`${item.database}-${item.accession}`}
+                >
+                  <span>{item.database}</span>
+                  <strong>{item.accession}</strong>
+                  <span>{item.label}</span>
+                  <span className="sequence-actions">
+                    {canSimulate && structure ? (
+                      <button type="button" onClick={() => setSelectedAccession(item.accession)}>
+                        Simulate
+                      </button>
+                    ) : (
+                      <em>Source only</em>
+                    )}
+                    <a href={item.href}>Open</a>
+                  </span>
+                </div>
+              );
+            })
+          ) : (
+            <div className="empty-panel">
+              The app returns accession-linked references when UniProt or NCBI
+              finds matching records. Raw therapeutic sequence output remains
+              gated.
+            </div>
+          )}
         </div>
       </section>
 
@@ -384,40 +455,6 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="sequence-band" aria-labelledby="sequence-title">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Reference sequences</p>
-            <h2 id="sequence-title">Accession candidates</h2>
-          </div>
-          <span className="gate-pill">{result?.safety.label ?? "Reference-only"}</span>
-        </div>
-        <div className="sequence-table" role="table" aria-label="Accession candidates">
-          <div className="sequence-row sequence-head" role="row">
-            <span>Database</span>
-            <span>Accession</span>
-            <span>Record</span>
-            <span>Length</span>
-          </div>
-          {result?.sequences.length ? (
-            result.sequences.map((item) => (
-              <a className="sequence-row" href={item.href} key={`${item.database}-${item.accession}`}>
-                <span>{item.database}</span>
-                <strong>{item.accession}</strong>
-                <span>{item.label}</span>
-                <span>{item.length ?? "n/a"}</span>
-              </a>
-            ))
-          ) : (
-            <div className="empty-panel">
-              The app returns accession-linked references when UniProt or NCBI
-              finds matching records. Raw therapeutic sequence output remains
-              gated.
-            </div>
-          )}
-        </div>
-      </section>
-
       <section className="model-band" aria-labelledby="model-title">
         <div className="section-heading">
           <div>
@@ -436,35 +473,6 @@ export default function Home() {
               {item.endpoint ? <code>{item.endpoint}</code> : null}
             </article>
           ))}
-        </div>
-      </section>
-
-      <section className="output-band" aria-label="3D preview and generated packet">
-        <div className="molecule-panel">
-          <div className="molecule-heading">
-            <div>
-              <p className="section-kicker">3D structure</p>
-              <h2>{structure ? structure.label : "Structure-first review"}</h2>
-            </div>
-            {structure ? <a className="structure-link" href={structure.href}>Open source</a> : null}
-          </div>
-          <StructureViewer structure={structure} />
-          <p className="viewer-note">
-            {structure
-              ? `${structure.source} returned ${structure.accession}. The browser viewer loads the public PDB/CIF file directly.`
-              : "When a public AlphaFold structure is found, this panel loads a real 3D viewer. Otherwise it keeps a nonclinical preview."}
-          </p>
-        </div>
-
-        <div className="sequence-panel">
-          <div className="sequence-header">
-            <div>
-              <p className="section-kicker">Copyable output</p>
-              <h2>Research packet</h2>
-            </div>
-            <span className="gate-pill">{result?.safety.label ?? "Sequence gated"}</span>
-          </div>
-          <pre>{packet}</pre>
         </div>
       </section>
 

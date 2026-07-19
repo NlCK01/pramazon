@@ -39,6 +39,7 @@ test("server-renders the Helix Triage research console", async () => {
   assert.match(html, /LLM research synthesis/);
   assert.match(html, /NCBI E-utilities/);
   assert.match(html, /UniProt/);
+  assert.match(html, /iCn3D/);
   assert.match(html, /NVIDIA model route/);
   assert.match(html, /OpenFold3/);
   assert.match(html, /Evo 2/);
@@ -65,7 +66,9 @@ test("wires the live research pipeline and cache", async () => {
   assert.match(page, /LLM terminology/);
   assert.match(page, /rules fallback/);
   assert.match(page, /LLM synthesis/);
-  assert.match(page, /ngl@2\.3\.0/);
+  assert.match(page, /ncbi\.nlm\.nih\.gov\/Structure\/icn3d/);
+  assert.match(page, /iCn3D live simulation/);
+  assert.match(page, /setSelectedAccession/);
   assert.match(page, /Sequence gated/);
   assert.match(route, /LLM research planner/);
   assert.match(route, /LLM research synthesis/);
