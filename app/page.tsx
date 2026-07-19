@@ -11,7 +11,6 @@ import type {
 } from "./lib/research-types";
 
 const PACKET_STORAGE_PREFIX = "pramazon:packet:";
-const ICN3D_STRUCTURE_COMMAND = "set background transparent;+style proteins cartoon;+color pink";
 
 const searchTargets = [
   "LLM cancer planner",
@@ -113,7 +112,7 @@ function icn3dUrl(structure: StructureCandidate | null) {
     url: file,
     width: "100%",
     height: "100%",
-    command: ICN3D_STRUCTURE_COMMAND,
+    command: "set background transparent; style proteins cartoon; color pink",
     showcommand: "0",
     showtitle: "0",
     mobilemenu: "1",
