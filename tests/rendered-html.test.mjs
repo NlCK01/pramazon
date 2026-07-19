@@ -87,7 +87,10 @@ test("wires the live research pipeline and cache", async () => {
   assert.match(page, /rules fallback/);
   assert.match(page, /LLM synthesis/);
   assert.match(page, /ncbi\.nlm\.nih\.gov\/Structure\/icn3d/);
-  assert.match(page, /set background transparent; style proteins cartoon; color pink/);
+  assert.match(page, /ICN3D_STRUCTURE_COMMAND/);
+  assert.match(page, /set background transparent;\+style proteins cartoon;\+color pink/);
+  assert.match(css, /\.molecule-scene[\s\S]*background: #ffffff/);
+  assert.match(css, /\.icn3d-frame[\s\S]*background: transparent/);
   assert.match(page, /iCn3D live structure/);
   assert.match(page, /No public 3D structure returned/);
   assert.match(page, /setSelectedAccession/);
