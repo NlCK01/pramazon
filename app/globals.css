@@ -254,10 +254,10 @@ input {
 
 .hero-band {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 22px;
-  min-height: 310px;
-  padding: 28px 28px 42px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 18px;
+  min-height: 248px;
+  padding: 20px 28px 28px;
   background:
     linear-gradient(90deg, rgba(35, 47, 62, 0.96), rgba(35, 47, 62, 0.72)),
     linear-gradient(135deg, #d5f3ff, #f9dba3 58%, #f0f2f2);
@@ -286,17 +286,17 @@ input {
 h1 {
   margin: 0;
   color: #ffffff;
-  font-size: clamp(3rem, 8vw, 6.2rem);
+  font-size: clamp(2.8rem, 6.2vw, 4.95rem);
   font-weight: 900;
-  letter-spacing: -3px;
-  line-height: 0.9;
+  letter-spacing: -2px;
+  line-height: 0.92;
 }
 
 .hero-copy p {
   max-width: 760px;
   color: #f4f7f8;
-  font-size: 1.08rem;
-  line-height: 1.5;
+  font-size: 0.98rem;
+  line-height: 1.42;
 }
 
 .hero-card,
@@ -320,9 +320,9 @@ h1 {
 
 .hero-card {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   align-content: center;
-  padding: 22px;
+  padding: 18px;
 }
 
 .hero-card strong,
@@ -331,7 +331,7 @@ h1 {
 }
 
 .hero-card strong {
-  font-size: 1.2rem;
+  font-size: 1.08rem;
 }
 
 .hero-card span {
@@ -1137,7 +1137,7 @@ pre {
   }
 
   h1 {
-    font-size: clamp(2.8rem, 18vw, 4.2rem);
+    font-size: clamp(2.55rem, 14vw, 3.65rem);
   }
 
   .molecule-scene {
