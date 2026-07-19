@@ -32,28 +32,42 @@ test("server-renders the Helix Triage research console", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>Helix Triage<\/title>/i);
-  assert.match(html, /Veterinary genomics research console/);
-  assert.match(html, /canine malignant melanoma/);
+  assert.match(html, /Live veterinary genomics research console/);
+  assert.match(html, /Run live research/);
+  assert.match(html, /Europe PMC/);
+  assert.match(html, /NCBI E-utilities/);
+  assert.match(html, /UniProt/);
   assert.match(html, /NVIDIA model route/);
   assert.match(html, /OpenFold3/);
   assert.match(html, /Evo 2/);
-  assert.match(html, /WITHHELD_BY_RESEARCH_SAFETY_GATE/);
+  assert.match(html, /Sequence gated/);
   assert.doesNotMatch(html, /Your site is taking shape|react-loading-skeleton/);
   assert.doesNotMatch(html, /codex-preview/);
 });
 
-test("keeps the finished site free of starter preview wiring", async () => {
-  const [page, layout, packageJson] = await Promise.all([
+test("wires the live research pipeline and cache", async () => {
+  const [page, route, schema, hosting, migration, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/research/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0000_quick_blockbuster.sql", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /normalizeRequest/);
+  assert.match(page, /fetch\("\/api\/research"/);
+  assert.match(page, /ngl@2\.3\.0/);
   assert.match(page, /Sequence gated/);
-  assert.match(layout, /title:\s*"Helix Triage"/);
+  assert.match(route, /Europe PMC/);
+  assert.match(route, /eutils\.ncbi\.nlm\.nih\.gov/);
+  assert.match(route, /rest\.uniprot\.org/);
+  assert.match(route, /alphafold\.ebi\.ac\.uk/);
+  assert.match(route, /WITHHELD_BY_RESEARCH_SAFETY_GATE/);
+  assert.match(route, /OpenFold3/);
+  assert.match(schema, /researchRuns/);
+  assert.match(hosting, /"d1":\s*"DB"/);
+  assert.match(migration, /CREATE TABLE `research_runs`/);
   assert.doesNotMatch(page, /SkeletonPreview|_sites-preview/);
-  assert.doesNotMatch(layout, /Starter Project|codex-preview|next\/font/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 
   await assert.rejects(

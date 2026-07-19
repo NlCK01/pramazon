@@ -136,6 +136,7 @@ h1 {
 
 .workbench,
 .evidence-band,
+.sequence-band,
 .model-band,
 .output-band,
 .architecture-band {
@@ -212,10 +213,37 @@ button:hover {
   border-color: var(--teal);
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .primary-action {
   border-color: var(--teal-dark);
   background: var(--teal-dark);
   color: #ffffff;
+}
+
+.example-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.chip-button {
+  min-height: 34px;
+  border-radius: 999px;
+  padding: 0 11px;
+  color: #42534b;
+  font-size: 0.8rem;
+  font-weight: 720;
+}
+
+.error-text {
+  margin: 12px 0 0;
+  color: #9b2f44;
+  font-weight: 760;
 }
 
 .translation-panel h2,
@@ -234,6 +262,31 @@ button:hover {
   margin: 18px 0 0;
   color: #405048;
   line-height: 1.58;
+}
+
+.confidence-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.confidence-row strong,
+.confidence-row span,
+.section-count,
+.structure-link {
+  border-radius: 999px;
+  border: 1px solid #c8d6ce;
+  padding: 6px 10px;
+  background: #ffffff;
+  color: #405048;
+  font-size: 0.8rem;
+  font-weight: 760;
+}
+
+.confidence-row strong {
+  color: var(--teal-dark);
+  text-transform: uppercase;
 }
 
 .term-grid {
@@ -255,7 +308,8 @@ button:hover {
 }
 
 .evidence-band,
-.model-band {
+.model-band,
+.sequence-band {
   padding: 26px 0 0;
 }
 
@@ -326,6 +380,71 @@ button:hover {
   line-height: 1.52;
 }
 
+.model-card code {
+  display: block;
+  margin-top: 12px;
+  border-radius: 8px;
+  padding: 8px;
+  background: #101715;
+  color: #dff7ed;
+  font-size: 0.75rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.empty-panel {
+  grid-column: 1 / -1;
+  min-height: 128px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #b8c6bf;
+  border-radius: 8px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #506259;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.sequence-table {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 12px 30px rgba(18, 35, 28, 0.06);
+}
+
+.sequence-row {
+  display: grid;
+  grid-template-columns: 150px 150px minmax(220px, 1fr) 90px;
+  gap: 12px;
+  align-items: center;
+  min-height: 58px;
+  border-top: 1px solid #dde5de;
+  padding: 12px 16px;
+  color: #405048;
+}
+
+.sequence-row:hover {
+  background: #f7fbf8;
+}
+
+.sequence-head {
+  min-height: 44px;
+  border-top: 0;
+  background: #edf5f0;
+  color: var(--teal-dark);
+  font-size: 0.78rem;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.sequence-row strong {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
 .model-primary {
   border-color: rgba(15, 118, 110, 0.38);
   background: linear-gradient(180deg, #ffffff, #eff8f4);
@@ -366,6 +485,35 @@ button:hover {
     linear-gradient(160deg, rgba(12, 75, 72, 0.96), rgba(19, 30, 27, 0.96)),
     radial-gradient(circle at 70% 28%, rgba(213, 138, 31, 0.25), transparent 13rem);
   perspective: 760px;
+}
+
+.structure-viewer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.molecule-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.viewer-state {
+  position: absolute;
+  z-index: 3;
+  left: 12px;
+  bottom: 12px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--teal-dark);
+  font-size: 0.76rem;
+  font-weight: 820;
+}
+
+.structure-link {
+  flex: 0 0 auto;
 }
 
 .target-surface {
@@ -510,6 +658,18 @@ pre {
   counter-increment: step;
 }
 
+.provider-list li {
+  grid-template-columns: 42px minmax(0, 0.36fr) minmax(0, 1fr);
+}
+
+.provider-list li[data-state="error"]::before {
+  background: #9b2f44;
+}
+
+.provider-list li[data-state="empty"]::before {
+  background: #8a5b0e;
+}
+
 .architecture-list li::before {
   display: grid;
   width: 34px;
@@ -548,6 +708,10 @@ pre {
   .model-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .sequence-row {
+    grid-template-columns: 120px 140px minmax(180px, 1fr) 80px;
+  }
 }
 
 @media (max-width: 680px) {
@@ -564,6 +728,14 @@ pre {
   .source-grid,
   .model-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sequence-table {
+    overflow-x: auto;
+  }
+
+  .sequence-row {
+    min-width: 680px;
   }
 
   .status-strip span {
